@@ -214,6 +214,59 @@ public static function test($id)
         return ['ok' => $code >= 200 && $code < 300, 'http_code' => $code, 'body' => $response];
     }
 
+    public static function httpGet($channel, $url, $timeout = 30)
+    {
+        $timeout = max(5, (int)$timeout);
+        $headers = self::headersFor($channel);
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_HTTPGET => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_HTTPHEADER => $headers,
+        ]);
+        $response = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        if ($response === false) {
+            return ['ok' => false, 'http_code' => 0, 'body' => '', 'error' => $error];
+        }
+        return ['ok' => $code >= 200 && $code < 300, 'http_code' => $code, 'body' => $response];
+    }
+
+    /**
+     * 从上游获取模型列表（OpenAI 兼容 GET /v1/models）
+     * $channel 可以是数据库行，也可以是临时的 base_url/api_key 组合（新建渠道尚未保存时）
+     */
+    public static function fetchRemoteModels($channel, $timeout = 20)
+    {
+        $url = self::buildUrl($channel, 'models');
+        if ($url === '') {
+            return ['ok' => false, 'message' => '渠道地址为空'];
+        }
+        $result = self::httpGet($channel, $url, $timeout);
+        if (empty($result['ok'])) {
+            $msg = isset($result['error']) && $result['error'] !== '' ? $result['error'] : 'HTTP ' . $result['http_code'];
+            return ['ok' => false, 'message' => $msg, 'detail' => substr((string)$result['body'], 0, 300)];
+        }
+        $json = json_decode($result['body'], true);
+        if (!is_array($json) || !isset($json['data']) || !is_array($json['data'])) {
+            return ['ok' => false, 'message' => '上游返回格式不符合 OpenAI 规范'];
+        }
+        $ids = [];
+        foreach ($json['data'] as $item) {
+            if (is_array($item) && isset($item['id']) && trim((string)$item['id']) !== '') {
+                $ids[] = trim((string)$item['id']);
+            }
+        }
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+        return ['ok' => true, 'models' => $ids];
+    }
+
     private static function headersFor($channel)
     {
         $type = isset($channel['type']) ? $channel['type'] : 'openai';

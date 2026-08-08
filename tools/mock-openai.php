@@ -17,6 +17,17 @@ if (isset($_GET['slow'])) {
     sleep(3);
 }
 
+if (strpos($path, '/models') !== false) {
+    header('Content-Type: application/json');
+    $mockModels = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'text-embedding-3-small', 'text-embedding-3-large', 'dall-e-3', 'whisper-1', 'tts-1'];
+    echo json_encode([
+        'object' => 'list',
+        'data' => array_map(function ($id) {
+            return ['id' => $id, 'object' => 'model', 'created' => 1700000000, 'owned_by' => 'mock'];
+        }, $mockModels),
+    ]);
+    exit;
+}
 if (strpos($path, '/embeddings') !== false) {
     header('Content-Type: application/json');
     echo json_encode([
