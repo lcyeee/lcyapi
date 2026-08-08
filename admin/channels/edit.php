@@ -129,17 +129,22 @@ $remark = $channel ? $channel['remark'] : '';
             <div class="form-hint"><?php echo $channel ? '留空或保持 ****** 表示不修改' : '渠道的上游密钥'; ?></div>
         </div>
         <div class="form-group">
-            <label>支持的模型（点击下方模型即可选中/取消，也可手动编辑，支持通配符，留空=全部）</label>
-            <textarea id="modelsInput" name="models" class="form-control" rows="3" placeholder="gpt-4o,gpt-4o-mini,text-embedding-3-small,image-*"><?php echo e($models); ?></textarea>
-            <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+            <label>支持的模型（点选下方模型或手动输入，支持粘贴逗号分隔列表与通配符，留空=全部）</label>
+            <textarea id="modelsInput" name="models" class="form-control" rows="2" placeholder="gpt-4o,gpt-4o-mini,text-embedding-3-small,image-*"></textarea>
+            <div id="selectedChips" class="selected-chips" style="display:none;"></div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
                 <button type="button" id="fetchModelsBtn" class="btn btn-sm">从云端获取模型</button>
+                <input type="text" id="modelSearch" class="form-control" placeholder="搜索模型…" style="display:none; width:160px; padding:5px 10px; font-size:12px;">
                 <span id="fetchModelsStatus" style="font-size:12px; color:var(--text-2);"></span>
             </div>
             <div id="modelChips" class="model-chips" style="display:none; margin-top:10px;">
-                <div style="margin-bottom:8px; font-size:12px; color:var(--text-2);">共 <span id="modelCount">0</span> 个模型，点击选择；
-                    <a href="javascript:void(0)" id="selectAllModels">全选</a> · <a href="javascript:void(0)" id="clearModels">清空</a>
+                <div style="margin-bottom:8px; font-size:12px; color:var(--text-2); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    共 <span id="modelCount">0</span> 个模型，已选 <span id="selectedCount">0</span> 个；
+                    <a href="javascript:void(0)" id="selectAllModels">全选</a> ·
+                    <a href="javascript:void(0)" id="invertModels">反选</a> ·
+                    <a href="javascript:void(0)" id="clearModels">清空</a>
                 </div>
-                <div id="modelChipList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                <div id="modelGroups"></div>
             </div>
         </div>
         <div class="form-group" style="display:flex; gap:16px;">
@@ -171,16 +176,44 @@ $remark = $channel ? $channel['remark'] : '';
 .model-chip { display:inline-block; padding:3px 10px; font-size:12px; border-radius:999px; border:1px solid var(--border); background:var(--card-2); color:var(--text-2); cursor:pointer; user-select:none; transition:.15s; }
 .model-chip:hover { border-color:var(--accent); color:var(--accent); }
 .model-chip.on { background:linear-gradient(135deg, var(--accent), var(--accent-2)); border-color:transparent; color:#fff; }
+.model-group { margin-bottom:10px; }
+.model-group-head { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2); margin-bottom:6px; }
+.model-group-name { font-weight:600; color:var(--text); }
+.model-group-link { cursor:pointer; color:var(--accent); }
+.sel-chip { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; font-size:12px; border-radius:999px; background:var(--accent-soft); color:var(--accent); margin:6px 6px 0 0; }
+.sel-chip-x { cursor:pointer; font-weight:700; opacity:.65; }
+.sel-chip-x:hover { opacity:1; }
 </style>
 <script>
 (function () {
     var btn = document.getElementById('fetchModelsBtn');
     var status = document.getElementById('fetchModelsStatus');
     var chipsBox = document.getElementById('modelChips');
-    var chipList = document.getElementById('modelChipList');
+    var groupsBox = document.getElementById('modelGroups');
     var countEl = document.getElementById('modelCount');
+    var selCountEl = document.getElementById('selectedCount');
+    var searchEl = document.getElementById('modelSearch');
     var input = document.getElementById('modelsInput');
+    var selBox = document.getElementById('selectedChips');
     var allModels = [];
+    var initialModels = <?php echo json_encode(array_values(array_filter(array_map('trim', explode(',', $models)))) ?: [], JSON_UNESCAPED_UNICODE); ?>;
+    input.value = initialModels.join(',');
+
+    /* 按模型名规则分组（参照 new-api 的模型类型划分） */
+    var GROUPS = [
+        { name: '对话', test: function (m) { return /^(gpt-|o\d|chatgpt|claude|gemini|deepseek|qwen|llama|glm-|moonshot|mistral|phi-|yi-|command|jina|grok|doubao|ep-|kimi|minimax)/i.test(m); } },
+        { name: '嵌入', test: function (m) { return /embed/i.test(m); } },
+        { name: '重排', test: function (m) { return /rerank/i.test(m); } },
+        { name: '图像', test: function (m) { return /^(dall-|image-|sd|stable|flux|mj|midjourney|cogview|wanx|kolors)/i.test(m); } },
+        { name: '语音', test: function (m) { return /whisper|tts|speech|audio|suno|voice|asr/i.test(m); } }
+    ];
+
+    function groupOf(m) {
+        for (var i = 0; i < GROUPS.length; i++) {
+            if (GROUPS[i].test(m)) { return GROUPS[i].name; }
+        }
+        return '其他';
+    }
 
     function currentSelected() {
         return input.value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
@@ -190,23 +223,110 @@ $remark = $channel ? $channel['remark'] : '';
         input.value = list.join(',');
     }
 
-    function renderChips() {
-        var selected = currentSelected();
-        chipList.innerHTML = '';
-        allModels.forEach(function (m) {
-            var span = document.createElement('span');
-            span.className = 'model-chip' + (selected.indexOf(m) !== -1 ? ' on' : '');
-            span.textContent = m;
-            span.addEventListener('click', function () {
+    function renderSelectedChips() {
+        var sel = currentSelected();
+        selCountEl.textContent = sel.length;
+        selBox.innerHTML = '';
+        selBox.style.display = sel.length ? 'block' : 'none';
+        sel.forEach(function (m) {
+            var c = document.createElement('span');
+            c.className = 'sel-chip';
+            var t = document.createElement('span');
+            t.textContent = m;
+            c.appendChild(t);
+            var x = document.createElement('span');
+            x.className = 'sel-chip-x';
+            x.textContent = '×';
+            x.title = '移除';
+            x.addEventListener('click', function () {
                 var cur = currentSelected();
                 var idx = cur.indexOf(m);
-                if (idx !== -1) { cur.splice(idx, 1); } else { cur.push(m); }
+                if (idx !== -1) { cur.splice(idx, 1); }
                 syncTextarea(cur);
-                span.className = 'model-chip' + (idx === -1 ? ' on' : '');
+                renderAll();
             });
-            chipList.appendChild(span);
+            c.appendChild(x);
+            selBox.appendChild(c);
         });
     }
+
+    function toggleModel(m) {
+        var cur = currentSelected();
+        var idx = cur.indexOf(m);
+        if (idx !== -1) { cur.splice(idx, 1); } else { cur.push(m); }
+        syncTextarea(cur);
+        renderAll();
+    }
+
+    function renderGroups() {
+        var kw = searchEl.value.trim().toLowerCase();
+        var sel = currentSelected();
+        groupsBox.innerHTML = '';
+        var byGroup = {};
+        allModels.forEach(function (m) {
+            if (kw && m.toLowerCase().indexOf(kw) === -1) { return; }
+            var g = groupOf(m);
+            (byGroup[g] = byGroup[g] || []).push(m);
+        });
+        var order = GROUPS.map(function (g) { return g.name; }).concat(['其他']);
+        var shown = 0;
+        order.forEach(function (gname) {
+            var list = byGroup[gname];
+            if (!list || !list.length) { return; }
+            shown += list.length;
+            var gdiv = document.createElement('div');
+            gdiv.className = 'model-group';
+            var head = document.createElement('div');
+            head.className = 'model-group-head';
+            var allOn = list.every(function (m) { return sel.indexOf(m) !== -1; });
+            head.innerHTML = '<span class="model-group-name">' + gname + '</span><span>(' + list.length + ')</span>' +
+                '<span class="model-group-link" data-g="' + gname + '">' + (allOn ? '取消本组' : '全选本组') + '</span>';
+            head.querySelector('.model-group-link').addEventListener('click', function () {
+                var cur = currentSelected();
+                var every = list.every(function (m) { return cur.indexOf(m) !== -1; });
+                list.forEach(function (m) {
+                    var i = cur.indexOf(m);
+                    if (every) { if (i !== -1) { cur.splice(i, 1); } } else { if (i === -1) { cur.push(m); } }
+                });
+                syncTextarea(cur);
+                renderAll();
+            });
+            gdiv.appendChild(head);
+            var wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px;';
+            list.forEach(function (m) {
+                var span = document.createElement('span');
+                span.className = 'model-chip' + (sel.indexOf(m) !== -1 ? ' on' : '');
+                span.textContent = m;
+                span.addEventListener('click', function () { toggleModel(m); });
+                wrap.appendChild(span);
+            });
+            gdiv.appendChild(wrap);
+            groupsBox.appendChild(gdiv);
+        });
+        if (!shown) {
+            groupsBox.innerHTML = '<div style="font-size:12px; color:var(--text-3); padding:6px 0;">无匹配模型</div>';
+        }
+    }
+
+    function renderAll() {
+        renderGroups();
+        renderSelectedChips();
+    }
+
+    /* 粘贴时自动拆分逗号/中文逗号/换行/分号/空格（参照 new-api 的批量添加） */
+    input.addEventListener('paste', function (e) {
+        var text = (e.clipboardData || window.clipboardData).getData('text');
+        if (!text || !/[,，;；\n\r\s]/.test(text)) { return; }
+        e.preventDefault();
+        var parts = text.split(/[,，;；\n\r\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+        var cur = currentSelected();
+        parts.forEach(function (p) { if (cur.indexOf(p) === -1) { cur.push(p); } });
+        syncTextarea(cur);
+        renderAll();
+    });
+    input.addEventListener('input', renderSelectedChips);
+    searchEl.addEventListener('input', renderGroups);
 
     btn.addEventListener('click', function () {
         btn.disabled = true;
@@ -220,19 +340,22 @@ $remark = $channel ? $channel['remark'] : '';
                 if (data.ok) {
                     allModels = data.models || [];
                     countEl.textContent = allModels.length;
-                    chipsBox.style.display = allModels.length ? 'block' : 'none';
-                    status.textContent = data.models.length ? '已获取 ' + data.models.length + ' 个模型，点击选择' : '上游未返回任何模型';
+                    var has = allModels.length > 0;
+                    chipsBox.style.display = has ? 'block' : 'none';
+                    searchEl.style.display = has ? 'inline-block' : 'none';
+                    status.textContent = has ? '已获取 ' + allModels.length + ' 个模型，点击选择' : '上游未返回任何模型';
                     status.style.color = '';
-                    renderChips();
+                    renderAll();
                 } else {
                     chipsBox.style.display = 'none';
+                    searchEl.style.display = 'none';
                     status.textContent = '获取失败：' + data.message;
-                    status.style.color = 'var(--red-text, #e5484d)';
+                    status.style.color = 'var(--red-text)';
                 }
             })
             .catch(function () {
                 status.textContent = '请求异常，请稍后重试';
-                status.style.color = 'var(--red-text, #e5484d)';
+                status.style.color = 'var(--red-text)';
             })
             .then(function () { btn.disabled = false; });
     });
@@ -241,12 +364,23 @@ $remark = $channel ? $channel['remark'] : '';
         var cur = currentSelected();
         allModels.forEach(function (m) { if (cur.indexOf(m) === -1) { cur.push(m); } });
         syncTextarea(cur);
-        renderChips();
+        renderAll();
+    });
+    document.getElementById('invertModels').addEventListener('click', function () {
+        var cur = currentSelected();
+        allModels.forEach(function (m) {
+            var i = cur.indexOf(m);
+            if (i !== -1) { cur.splice(i, 1); } else { cur.push(m); }
+        });
+        syncTextarea(cur);
+        renderAll();
     });
     document.getElementById('clearModels').addEventListener('click', function () {
         input.value = '';
-        renderChips();
+        renderAll();
     });
+
+    renderSelectedChips();
 })();
 </script>
 
