@@ -67,6 +67,7 @@ function inst_execute_sql(PDO $pdo, $sqlFile)
 
 function inst_write_config($cfg, $site)
 {
+    global $CONFIG_FILE;
     $arr = function ($v) {
         return var_export($v, true);
     };
@@ -213,7 +214,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: install.php?done=1');
                 exit;
             } catch (Throwable $ex) {
-                $errors[] = '安装失败：' . $ex->getMessage();
+                /* 附带出错位置，便于排查（如「Path cannot be empty」这类无上下文消息） */
+                $errors[] = '安装失败：' . $ex->getMessage() . '（' . basename($ex->getFile()) . ':' . $ex->getLine() . '）';
             }
         }
     }
