@@ -33,6 +33,7 @@ function nav_active($needle, $requestPath)
             <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?>令牌管理</a>
             <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
             <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
+            <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
             <?php if (Auth::isAdmin()) : ?>
                 <a class="admin-entry" href="<?php echo base_url('admin/index.php'); ?>"><?php echo svg_icon('shield'); ?>后台</a>
             <?php endif; ?>
@@ -56,6 +57,7 @@ function nav_active($needle, $requestPath)
                     <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
                     <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
                     <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码充值</a>
+                    <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
                     <a class="<?php echo nav_active('/user/appearance/', $requestPath); ?>" href="<?php echo base_url('user/appearance/index.php'); ?>"><?php echo svg_icon('eye'); ?>外观主题</a>
                 </div>
             </aside>
@@ -69,6 +71,10 @@ function nav_active($needle, $requestPath)
                 <?php endif; ?>
                 <?php if ($flashSuccess !== '') : ?>
                     <div class="alert alert-success"><?php echo e($flashSuccess); ?></div>
+                <?php endif; ?>
+                <?php $siteNotice = setting('notice', ''); ?>
+                <?php if ($siteNotice !== '') : ?>
+                    <div class="alert alert-info"><?php echo svg_icon('info'); ?><?php echo nl2br(e($siteNotice)); ?></div>
                 <?php endif; ?>
                 <script>
                     /* 表格自动包裹横向滚动容器（移动端防重叠） */

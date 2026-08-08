@@ -18,7 +18,7 @@ class User
 
     public static function create($data)
     {
-        $fields = ['username', 'email', 'password', 'nickname', 'avatar', 'role', 'quota', 'status'];
+        $fields = ['username', 'email', 'password', 'nickname', 'avatar', 'role', 'quota', 'status', 'aff_code', 'aff_by'];
         $insert = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -34,11 +34,42 @@ class User
         if (!isset($insert['status'])) {
             $insert['status'] = 1;
         }
+        if (!isset($insert['aff_code'])) {
+            $insert['aff_code'] = self::genAffCode();
+        }
         try {
             return DB::insert('users', $insert);
         } catch (Exception $ex) {
             return false;
         }
+    }
+
+    /**
+     * 生成唯一邀请码（8 位大写字母数字）
+     */
+    public static function genAffCode()
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        for ($i = 0; $i < 20; $i++) {
+            $code = '';
+            for ($j = 0; $j < 8; $j++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+            $exists = DB::value('SELECT id FROM users WHERE aff_code = ?', [$code]);
+            if ($exists === false) {
+                return $code;
+            }
+        }
+        return strtoupper(bin2hex(random_bytes(4)));
+    }
+
+    public static function findByAffCode($code)
+    {
+        $code = strtoupper(trim((string)$code));
+        if ($code === '') {
+            return false;
+        }
+        return DB::fetch('SELECT * FROM users WHERE aff_code = ?', [$code]);
     }
 
     public static function update($id, $data)
@@ -63,6 +94,9 @@ class User
             DB::delete('users', 'id = ?', [(int)$id]);
             DB::delete('tokens', 'user_id = ?', [(int)$id]);
             DB::delete('recharge_logs', 'user_id = ?', [(int)$id]);
+            DB::delete('checkins', 'user_id = ?', [(int)$id]);
+            /* 解除下级邀请关系，避免悬挂外键引用 */
+            DB::query('UPDATE users SET aff_by = NULL WHERE aff_by = ?', [(int)$id]);
             DB::commit();
             return true;
         } catch (Exception $ex) {

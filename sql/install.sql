@@ -14,13 +14,19 @@ CREATE TABLE IF NOT EXISTS users (
     total_quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
     status TINYINT NOT NULL DEFAULT 1,
     api_count INT UNSIGNED NOT NULL DEFAULT 0,
+    aff_code VARCHAR(16) DEFAULT NULL COMMENT '我的邀请码',
+    aff_by INT UNSIGNED DEFAULT NULL COMMENT '邀请人用户ID',
+    aff_quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000 COMMENT '待转入的邀请收益',
+    aff_history_quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000 COMMENT '累计邀请收益',
     last_login_at DATETIME DEFAULT NULL,
     last_login_ip VARCHAR(45) DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_username (username),
     UNIQUE KEY uk_email (email),
-    KEY idx_status (status)
+    UNIQUE KEY uk_aff_code (aff_code),
+    KEY idx_status (status),
+    KEY idx_aff_by (aff_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS channels (
@@ -54,6 +60,7 @@ CREATE TABLE IF NOT EXISTS tokens (
     status TINYINT NOT NULL DEFAULT 1,
     used_count INT UNSIGNED NOT NULL DEFAULT 0,
     expired_at DATETIME DEFAULT NULL,
+    allow_ips VARCHAR(500) DEFAULT NULL COMMENT 'IP白名单，逗号分隔，空=不限',
     last_used_at DATETIME DEFAULT NULL,
     last_used_ip VARCHAR(45) DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -172,6 +179,28 @@ CREATE TABLE IF NOT EXISTS recharge_logs (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_user (user_id),
     KEY idx_type (type),
+    KEY idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS checkins (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    checkin_date DATE NOT NULL,
+    reward DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_user_date (user_id, checkin_date),
+    KEY idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT UNSIGNED NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    target VARCHAR(100) DEFAULT NULL,
+    detail TEXT DEFAULT NULL,
+    ip VARCHAR(45) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_admin (admin_id),
     KEY idx_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

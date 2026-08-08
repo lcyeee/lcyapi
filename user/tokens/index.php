@@ -13,16 +13,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = trim($_POST['name'] ?? '');
         $quota = (float)($_POST['remain_quota'] ?? -1);
         $expired = trim($_POST['expired_at'] ?? '');
+        $allowIps = trim($_POST['allow_ips'] ?? '');
         if ($name === '') {
             session_flash('flash_error', '请输入令牌名称');
             redirect(base_url('user/tokens/index.php'));
         }
-        $result = Token::create(Auth::id(), $name, $quota, $expired !== '' ? $expired : null);
+        if ($allowIps !== '') {
+            foreach (explode(',', $allowIps) as $oneIp) {
+                if (filter_var(trim($oneIp), FILTER_VALIDATE_IP) === false) {
+                    session_flash('flash_error', 'IP 白名单含非法地址：' . trim($oneIp));
+                    redirect(base_url('user/tokens/index.php'));
+                }
+            }
+        }
+        $result = Token::create(Auth::id(), $name, $quota, $expired !== '' ? $expired : null, $allowIps !== '' ? $allowIps : null);
         if ($result !== false) {
             $newKeyFlash = $result['key'];
         } else {
             session_flash('flash_error', '创建失败');
         }
+    } elseif ($action === 'edit') {
+        $id = (int)($_POST['id'] ?? 0);
+        $name = mb_substr(trim($_POST['name'] ?? ''), 0, 100);
+        $quotaInput = trim($_POST['remain_quota'] ?? '');
+        $quota = $quotaInput === '' ? -1.0 : (float)$quotaInput;
+        $expired = trim($_POST['expired_at'] ?? '');
+        $allowIps = trim($_POST['allow_ips'] ?? '');
+        if ($name === '') {
+            session_flash('flash_error', '令牌名称不能为空');
+            redirect(base_url('user/tokens/index.php'));
+        }
+        if ($allowIps !== '') {
+            foreach (explode(',', $allowIps) as $oneIp) {
+                if (filter_var(trim($oneIp), FILTER_VALIDATE_IP) === false) {
+                    session_flash('flash_error', 'IP 白名单含非法地址：' . trim($oneIp));
+                    redirect(base_url('user/tokens/index.php'));
+                }
+            }
+        }
+        $ok = Token::update($id, [
+            'name' => $name,
+            'remain_quota' => $quota,
+            'expired_at' => $expired !== '' ? $expired : null,
+            'allow_ips' => $allowIps !== '' ? mb_substr($allowIps, 0, 500) : null,
+        ], Auth::id());
+        session_flash($ok ? 'flash_success' : 'flash_error', $ok ? '令牌已更新' : '更新失败');
+        redirect(base_url('user/tokens/index.php'));
     } elseif ($action === 'toggle') {
         Token::update((int)($_POST['id'] ?? 0), ['status' => 0], Auth::id());
         session_flash('flash_success', '令牌已停用');
@@ -60,6 +96,10 @@ $tokens = Token::getByUser(Auth::id());
             <label>过期时间（可留空）</label>
             <input type="datetime-local" name="expired_at" class="form-control" style="width:200px;">
         </div>
+        <div class="form-group" style="margin:0;">
+            <label>IP 白名单（逗号分隔，留空不限）</label>
+            <input type="text" name="allow_ips" class="form-control" style="width:220px;" placeholder="1.2.3.4,5.6.7.8">
+        </div>
         <button type="submit" class="btn">创建</button>
     </form>
 </div>
@@ -87,6 +127,7 @@ $tokens = Token::getByUser(Auth::id());
                 <td><?php echo $token['status'] ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-gray">已停用</span>'; ?></td>
                 <td><?php echo $token['last_used_at'] ? e($token['last_used_at']) : '-'; ?></td>
                 <td style="white-space:nowrap;">
+                    <a class="btn btn-sm btn-outline" href="javascript:void(0)" onclick="toggleEdit(<?php echo $token['id']; ?>)">编辑</a>
                     <?php if ($token['status']) : ?>
                         <form method="post" style="display:inline-block; margin-right:4px;">
                             <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
@@ -103,8 +144,41 @@ $tokens = Token::getByUser(Auth::id());
                     </form>
                 </td>
             </tr>
+            <tr id="token-edit-<?php echo $token['id']; ?>" style="display:none;">
+                <td colspan="10">
+                    <form method="post" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+                        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                        <input type="hidden" name="action" value="edit">
+                        <input type="hidden" name="id" value="<?php echo $token['id']; ?>">
+                        <div class="form-group" style="margin:0;">
+                            <label>名称</label>
+                            <input type="text" name="name" class="form-control" style="width:150px;" value="<?php echo e($token['name']); ?>">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>额度（留空=不限）</label>
+                            <input type="number" name="remain_quota" step="0.0001" class="form-control" style="width:130px;" value="<?php echo (float)$token['remain_quota'] < 0 ? '' : e($token['remain_quota']); ?>">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>过期时间（留空=永久）</label>
+                            <input type="datetime-local" name="expired_at" class="form-control" style="width:200px;" value="<?php echo $token['expired_at'] ? e(date('Y-m-d\TH:i', strtotime($token['expired_at']))) : ''; ?>">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>IP 白名单（逗号分隔，留空不限）</label>
+                            <input type="text" name="allow_ips" class="form-control" style="width:220px;" value="<?php echo e($token['allow_ips'] ?? ''); ?>">
+                        </div>
+                        <button type="submit" class="btn btn-sm">保存</button>
+                    </form>
+                </td>
+            </tr>
         <?php endforeach; ?>
         </tbody>
     </table>
 </div>
+<script>
+function toggleEdit(id) {
+    var el = document.getElementById('token-edit-' + id);
+    if (!el) { return; }
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+</script>
 <?php require dirname(__DIR__) . '/templates/footer.php'; ?>

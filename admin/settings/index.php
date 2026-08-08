@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $name = mb_substr(trim($_POST['site_name'] ?? ''), 0, 50);
     $desc = mb_substr(trim($_POST['site_description'] ?? ''), 0, 200);
+    $notice = mb_substr(trim($_POST['notice'] ?? ''), 0, 2000);
     $register = empty($_POST['register_enabled']) ? '0' : '1';
     $defaultQuota = (float)($_POST['default_quota'] ?? 0);
     $loginAttempts = max(1, (int)($_POST['login_attempts'] ?? 5));
@@ -28,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     setting_set('site_name', $name);
     setting_set('site_description', $desc);
+    setting_set('notice', $notice);
     setting_set('register_enabled', $register);
     setting_set('default_quota', (string)$defaultQuota);
     setting_set('login_attempts', (string)$loginAttempts);
@@ -46,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $s = settings_all();
 $siteName = isset($s['site_name']) ? $s['site_name'] : config('site.name');
 $siteDesc = isset($s['site_description']) ? $s['site_description'] : config('site.description', '');
+$notice = isset($s['notice']) ? $s['notice'] : '';
 $registerEnabled = isset($s['register_enabled']) ? $s['register_enabled'] : (config('site.register_enabled') ? '1' : '0');
 $defaultQuota = isset($s['default_quota']) ? $s['default_quota'] : config('site.default_quota', 0);
 $loginAttempts = isset($s['login_attempts']) ? $s['login_attempts'] : config('security.login_attempts', 5);
@@ -108,6 +111,10 @@ $autoDisableThreshold = isset($s['auto_disable_threshold']) ? $s['auto_disable_t
         <div class="form-group">
             <label>新用户默认额度（$）</label>
             <input type="number" name="default_quota" step="0.0001" min="0" class="form-control" value="<?php echo e($defaultQuota); ?>">
+        </div>
+        <div class="form-group">
+            <label>系统公告（留空不展示，前台顶部显示）</label>
+            <textarea name="notice" class="form-control" rows="3" placeholder="例如：本站已升级，新增 XX 模型……"><?php echo e($notice); ?></textarea>
         </div>
     </div>
 

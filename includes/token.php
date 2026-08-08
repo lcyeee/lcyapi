@@ -8,7 +8,7 @@ class Token
         return self::PREFIX . bin2hex(random_bytes(24));
     }
 
-    public static function create($userId, $name, $remainQuota = -1.0, $expiredAt = null)
+    public static function create($userId, $name, $remainQuota = -1.0, $expiredAt = null, $allowIps = null)
     {
         $key = self::generateKey();
         $data = [
@@ -20,6 +20,9 @@ class Token
         ];
         if ($expiredAt !== null && $expiredAt !== '') {
             $data['expired_at'] = $expiredAt;
+        }
+        if ($allowIps !== null && trim((string)$allowIps) !== '') {
+            $data['allow_ips'] = mb_substr(trim((string)$allowIps), 0, 500);
         }
         $id = DB::insert('tokens', $data);
         return $id ? ['id' => (int)$id, 'key' => $key] : false;
@@ -52,7 +55,7 @@ class Token
         if ($token === false) {
             return false;
         }
-        $fields = ['name', 'remain_quota', 'status', 'expired_at'];
+        $fields = ['name', 'remain_quota', 'status', 'expired_at', 'allow_ips'];
         $update = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -89,6 +92,9 @@ class Token
         }
         if ($token['expired_at'] !== null && strtotime($token['expired_at']) < time()) {
             return ['ok' => false, 'error' => 'invalid_token', 'message' => '令牌已过期'];
+        }
+        if (!self::ipAllowed($token, client_ip())) {
+            return ['ok' => false, 'error' => 'ip_not_allowed', 'message' => '当前 IP 不在令牌白名单内'];
         }
         if ((float)$token['remain_quota'] < 0 || (float)$token['remain_quota'] > 0) {
         } else {
@@ -144,6 +150,19 @@ class Token
             return $key;
         }
         return substr($key, 0, 10) . '••••' . substr($key, -4);
+    }
+
+    /**
+     * 令牌 IP 白名单校验：allow_ips 为空表示不限，逗号分隔支持精确 IP
+     */
+    public static function ipAllowed($token, $ip)
+    {
+        $allow = isset($token['allow_ips']) ? trim((string)$token['allow_ips']) : '';
+        if ($allow === '') {
+            return true;
+        }
+        $list = array_filter(array_map('trim', explode(',', $allow)));
+        return in_array($ip, $list, true);
     }
 
     public static function normalizeKey($rawKey)
