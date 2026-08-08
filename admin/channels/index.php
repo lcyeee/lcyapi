@@ -87,7 +87,7 @@ $channels = Channel::all();
                     <input type="hidden" name="id" value="<?php echo $channel['id']; ?>">
                     <button type="submit" name="action" value="toggle" class="btn btn-sm btn-warning"><?php echo $channel['status'] ? '停用' : '启用'; ?></button>
                 </form>
-                <form method="post" style="display:inline-block;" onsubmit="return confirm('确定删除该渠道？');">
+                <form method="post" style="display:inline-block;" data-confirm-title="删除渠道" data-confirm-msg="确定删除该渠道？删除后不可恢复。" data-confirm-ok="删除">
                     <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
                     <input type="hidden" name="id" value="<?php echo $channel['id']; ?>">
                     <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">删除</button>

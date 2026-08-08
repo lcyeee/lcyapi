@@ -234,5 +234,5 @@ function theme_head_scripts()
     $inline = <<<'JS'
 (function(){try{var m=localStorage.getItem('lcy_mode');var d=m==='dark'||((!m||m==='auto')&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-mode',d?'dark':'light');}catch(e){}})();
 JS;
-    return '<script>' . $inline . '</script>' . "\n" . '<script src="' . base_url('assets/js/theme.js') . '"></script>';
+    return '<script>' . $inline . '</script>' . "\n" . '<script src="' . base_url('assets/js/theme.js') . '"></script>' . "\n" . '<script src="' . base_url('assets/js/modal.js') . '"></script>';
 }

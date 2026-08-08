@@ -116,7 +116,7 @@ $codes = DB::fetchAll('SELECT r.*, u.username AS used_by_name FROM redemptions r
                             <button type="submit" name="action" value="disable" class="btn btn-sm btn-warning">停用</button>
                         </form>
                     <?php endif; ?>
-                    <form method="post" style="display:inline-block;" onsubmit="return confirm('确定删除？');">
+                    <form method="post" style="display:inline-block;" data-confirm-title="删除兑换码" data-confirm-msg="确定删除该兑换码？删除后不可恢复。" data-confirm-ok="删除">
                         <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
                         <input type="hidden" name="id" value="<?php echo $code['id']; ?>">
                         <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">删除</button>

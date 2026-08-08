@@ -142,7 +142,7 @@ $m = $edit !== false ? $edit : ['id' => 0, 'name' => '', 'display_name' => '', '
                         <input type="hidden" name="id" value="<?php echo $model['id']; ?>">
                         <button type="submit" name="action" value="toggle" class="btn btn-sm btn-warning"><?php echo $model['enabled'] ? '停用' : '启用'; ?></button>
                     </form>
-                    <form method="post" style="display:inline-block;" onsubmit="return confirm('确定删除该模型？');">
+                    <form method="post" style="display:inline-block;" data-confirm-title="删除模型" data-confirm-msg="确定删除该模型？删除后不可恢复。" data-confirm-ok="删除">
                         <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
                         <input type="hidden" name="id" value="<?php echo $model['id']; ?>">
                         <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">删除</button>

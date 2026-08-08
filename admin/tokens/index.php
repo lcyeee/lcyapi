@@ -141,7 +141,7 @@ $tokens = DB::fetchAll('SELECT t.*, u.username FROM tokens t LEFT JOIN users u O
                         <input type="hidden" name="id" value="<?php echo $token['id']; ?>">
                         <button type="submit" name="action" value="toggle" class="btn btn-sm btn-warning"><?php echo $token['status'] ? '停用' : '启用'; ?></button>
                     </form>
-                    <form method="post" style="display:inline-block; margin-right:4px;" onsubmit="return confirm('确定删除该令牌？')">
+                    <form method="post" style="display:inline-block; margin-right:4px;" data-confirm-title="删除令牌" data-confirm-msg="确定删除该令牌？删除后立即失效。" data-confirm-ok="删除">
                         <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
                         <input type="hidden" name="id" value="<?php echo $token['id']; ?>">
                         <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">删除</button>

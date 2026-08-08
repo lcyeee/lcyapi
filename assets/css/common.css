@@ -286,6 +286,37 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
 }
 .theme-mode-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 2px 10px var(--accent-border); }
 
+/* ---------- iOS 磨砂弹窗（assets/js/modal.js） ---------- */
+.lcy-modal-mask {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(15, 23, 42, .32);
+    backdrop-filter: blur(6px) saturate(1.2); -webkit-backdrop-filter: blur(6px) saturate(1.2);
+    opacity: 0; pointer-events: none; transition: opacity .25s var(--ease);
+}
+html[data-mode="dark"] .lcy-modal-mask { background: rgba(0, 0, 0, .45); }
+.lcy-modal-mask.show { opacity: 1; pointer-events: auto; }
+.lcy-modal {
+    width: calc(100% - 48px); max-width: 320px;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: blur(28px) saturate(1.5); -webkit-backdrop-filter: blur(28px) saturate(1.5);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+    text-align: center; overflow: hidden;
+    transform: scale(.86); transition: transform .32s var(--spring);
+}
+.lcy-modal-mask.show .lcy-modal { transform: scale(1); }
+.lcy-modal-title { padding: 20px 20px 4px; font-size: 16px; font-weight: 600; color: var(--text); }
+.lcy-modal-msg { padding: 6px 20px 20px; font-size: 13.5px; line-height: 1.6; color: var(--text-2); }
+.lcy-modal-actions { display: flex; border-top: 1px solid var(--border); }
+.lcy-modal-btn {
+    flex: 1; padding: 12px 0; border: none; background: transparent; cursor: pointer;
+    font-size: 15px; color: var(--accent); transition: background .15s var(--ease);
+}
+.lcy-modal-btn:active { background: var(--hover); }
+.lcy-modal-btn.cancel { color: var(--text-2); font-weight: 500; border-right: 1px solid var(--border); }
+.lcy-modal-btn.ok { font-weight: 600; }
+.lcy-modal-btn.ok.danger { color: var(--red-text); }
+
 /* ---------- 动画 ---------- */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes popIn { from { opacity: 0; transform: scale(.92) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
