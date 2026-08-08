@@ -1,4 +1,5 @@
 <?php
+$path = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
 $body = file_get_contents('php://input');
 $payload = json_decode($body, true);
 if (!is_array($payload)) {
@@ -14,6 +15,35 @@ if (isset($_GET['fail'])) {
 }
 if (isset($_GET['slow'])) {
     sleep(3);
+}
+
+if (strpos($path, '/embeddings') !== false) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'object' => 'list',
+        'data' => [['object' => 'embedding', 'embedding' => array_fill(0, 4, 0.0123), 'index' => 0]],
+        'model' => $model,
+        'usage' => ['prompt_tokens' => 4, 'total_tokens' => 4],
+    ]);
+    exit;
+}
+if (strpos($path, '/images/generations') !== false) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'created' => time(),
+        'data' => [['url' => 'https://example.com/generated.png']],
+    ]);
+    exit;
+}
+if (strpos($path, '/audio/transcriptions') !== false) {
+    header('Content-Type: application/json');
+    echo json_encode(['text' => '这是模拟转写出的文本内容。']);
+    exit;
+}
+if (strpos($path, '/audio/speech') !== false) {
+    header('Content-Type: audio/mpeg');
+    echo "\x00\x00\x00\x18ftypmp42";
+    exit;
 }
 
 $usage = ['prompt_tokens' => 12, 'completion_tokens' => 8, 'total_tokens' => 20];

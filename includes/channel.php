@@ -187,11 +187,16 @@ public static function test($id)
 
     public static function http($channel, $body, $timeout = 120)
     {
+        return self::httpPost($channel, self::buildUrl($channel, 'chat/completions'), $body, $timeout);
+    }
+
+    public static function httpPost($channel, $url, $body, $timeout = 120)
+    {
         $timeout = max(5, (int)$timeout);
         $headers = self::headersFor($channel);
         $ch = curl_init();
         curl_setopt_array($ch, [
-            CURLOPT_URL => self::buildUrl($channel, 'chat/completions'),
+            CURLOPT_URL => $url,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $body,
             CURLOPT_RETURNTRANSFER => true,

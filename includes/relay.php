@@ -50,7 +50,7 @@ class Relay
         }
 
         $isStream = !empty($payload['stream']) && in_array($apiType, ['chat', 'completion'], true);
-        $maxAttempts = 1 + max(0, (int)config('relay.retry_count', 0));
+        $maxAttempts = 1 + max(0, (int)setting('retry_count', config('relay.retry_count', 0)));
         $excludeIds = [];
         $startMs = microtime(true);
         $lastAttempt = null;
@@ -77,6 +77,7 @@ class Relay
                 return null;
             }
             Channel::incrementFail((int)$channel['id']);
+            self::maybeAutoDisable((int)$channel['id']);
             $lastAttempt = $result;
             if (!$result['retryable']) {
                 break;
@@ -268,6 +269,19 @@ private static function forward($channel, $endpoint, $body, &$isStream)
             }
         }
         return $usage;
+    }
+
+    private static function maybeAutoDisable($channelId)
+    {
+        if (!setting('auto_disable', config('relay.auto_disable', false))) {
+            return;
+        }
+        $threshold = max(1, (int)setting('auto_disable_threshold', config('relay.auto_disable_threshold', 100)));
+        $channel = Channel::getById($channelId);
+        if ($channel !== false && (int)$channel['fail_count'] >= $threshold) {
+            Channel::update($channelId, ['status' => 0]);
+            write_log("channel #{$channelId} auto disabled (fail_count={$channel['fail_count']})");
+        }
     }
 
     private static function openaiError($message, $type, $code, $httpCode = 400, $retryAfter = 0)

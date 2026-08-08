@@ -6,7 +6,7 @@ Admin::requireAdmin();
 $pageTitle = isset($pageTitle) ? $pageTitle : '管理后台';
 $adminUser = Auth::user();
 $requestPath = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
-function admin_nav_active($needle, $requestPath)
+function admin_nav($needle, $requestPath)
 {
     return strpos($requestPath, $needle) !== false ? 'active' : '';
 }

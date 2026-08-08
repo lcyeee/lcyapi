@@ -77,17 +77,21 @@ class User
         if ($amount <= 0) {
             return true;
         }
-        $stmt = DB::query(
-            'UPDATE users SET quota = quota - ?, used_quota = used_quota + ? WHERE id = ? AND quota >= ?',
-            [$amount, $amount, (int)$id, $amount]
-        );
-        return $stmt->rowCount() > 0;
+        $row = DB::fetch('SELECT quota FROM users WHERE id = ? FOR UPDATE', [(int)$id]);
+        if ($row === false || (float)$row['quota'] + 1e-9 < $amount) {
+            return false;
+        }
+        DB::query('UPDATE users SET quota = quota - ?, used_quota = used_quota + ? WHERE id = ?', [$amount, $amount, (int)$id]);
+        return true;
     }
 
     public static function addQuota($id, $amount, $type = 'admin', $remark = '', $operatorId = null, $redemptionId = null)
     {
         $amount = (float)$amount;
-        DB::begin();
+        $outer = DB::inTransaction();
+        if (!$outer) {
+            DB::begin();
+        }
         try {
             DB::query('UPDATE users SET quota = quota + ?, total_quota = total_quota + ? WHERE id = ?', [$amount, $amount, (int)$id]);
             DB::insert('recharge_logs', [
@@ -98,10 +102,14 @@ class User
                 'operator_id' => $operatorId !== null ? (int)$operatorId : null,
                 'remark' => $remark !== '' ? mb_substr($remark, 0, 255) : null,
             ]);
-            DB::commit();
+            if (!$outer) {
+                DB::commit();
+            }
             return true;
         } catch (Exception $ex) {
-            DB::rollback();
+            if (!$outer) {
+                DB::rollback();
+            }
             write_log('addQuota error: ' . $ex->getMessage());
             return false;
         }
