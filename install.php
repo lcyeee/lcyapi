@@ -267,7 +267,7 @@ body { display: flex; align-items: flex-start; justify-content: center; min-heig
             <form method="post" action="install.php">
                 <input type="hidden" name="_csrf" value="<?php echo htmlspecialchars($_SESSION['install_csrf']); ?>">
 
-                <div class="step-title"><span class="no">1</span> 数据库配置<?php echo $configExists ? '<span style="font-size:12px;color:#16a34a;font-weight:400;">（使用现有 config.php）</span>' : ''; ?></div>
+                <div class="step-title"><span class="no">1</span> 数据库配置<?php echo $configExists ? '<span style="font-size:12px;color:var(--green-text);font-weight:400;">（使用现有 config.php）</span>' : ''; ?></div>
                 <?php if ($configExists) : ?>
                     <div class="note">
                         配置文件 config.php 已存在，将使用其中数据库设置：<br>

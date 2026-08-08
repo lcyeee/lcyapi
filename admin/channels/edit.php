@@ -113,8 +113,9 @@ $remark = $channel ? $channel['remark'] : '';
             <label>备注</label>
             <input type="text" name="remark" class="form-control" value="<?php echo e($remark); ?>">
         </div>
-        <div class="form-group">
-            <label><input type="checkbox" name="status" value="1" <?php echo $status ? 'checked' : ''; ?> style="width:auto;"> 启用渠道</label>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用渠道</label>
+            <label class="ios-switch"><input type="checkbox" name="status" value="1" <?php echo $status ? 'checked' : ''; ?>><span></span></label>
         </div>
         <div class="form-actions">
             <button type="submit" class="btn"><?php echo $channel ? '保存' : '创建'; ?></button>

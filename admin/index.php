@@ -100,13 +100,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const accent = window.LcyTheme ? LcyTheme.accent() : '#409EFF';
     const accentRgb = window.LcyTheme ? LcyTheme.accentRgb() : '64,158,255';
     Chart.defaults.color = (window.LcyTheme && LcyTheme.isDark()) ? '#9CA3AF' : '#6B7280';
+    Chart.defaults.borderColor = 'rgba(148,163,184,.16)';
+    const green = getComputedStyle(document.documentElement).getPropertyValue('--green').trim() || '#30B26C';
     new Chart(document.getElementById('trendChart'), {
         type: 'line',
         data: {
             labels: <?php echo json_encode($labels); ?>,
             datasets: [
                 { label: '消费 ($)', data: <?php echo json_encode($costs); ?>, borderColor: accent, backgroundColor: 'rgba(' + accentRgb + ',.1)', fill: true, tension: .35, yAxisID: 'y' },
-                { label: '调用次数', data: <?php echo json_encode($counts); ?>, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.08)', fill: true, tension: .35, yAxisID: 'y1' }
+                { label: '调用次数', data: <?php echo json_encode($counts); ?>, borderColor: green, backgroundColor: 'rgba(48,178,108,.08)', fill: true, tension: .35, yAxisID: 'y1' }
             ]
         },
         options: {

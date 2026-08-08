@@ -101,8 +101,9 @@ $autoDisableThreshold = isset($s['auto_disable_threshold']) ? $s['auto_disable_t
             <label>站点描述</label>
             <input type="text" name="site_description" class="form-control" value="<?php echo e($siteDesc); ?>">
         </div>
-        <div class="form-group">
-            <label><input type="checkbox" name="register_enabled" value="1" <?php echo $registerEnabled === '1' ? 'checked' : ''; ?> style="width:auto;"> 开放用户注册</label>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">开放用户注册</label>
+            <label class="ios-switch"><input type="checkbox" name="register_enabled" value="1" <?php echo $registerEnabled === '1' ? 'checked' : ''; ?>><span></span></label>
         </div>
         <div class="form-group">
             <label>新用户默认额度（$）</label>
@@ -144,8 +145,9 @@ $autoDisableThreshold = isset($s['auto_disable_threshold']) ? $s['auto_disable_t
                 <input type="number" name="retry_count" min="0" class="form-control" value="<?php echo e($retryCount); ?>">
             </div>
         </div>
-        <div class="form-group">
-            <label><input type="checkbox" name="auto_disable" value="1" <?php echo $autoDisable === '1' ? 'checked' : ''; ?> style="width:auto;"> 连续失败自动停用渠道</label>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">连续失败自动停用渠道</label>
+            <label class="ios-switch"><input type="checkbox" name="auto_disable" value="1" <?php echo $autoDisable === '1' ? 'checked' : ''; ?>><span></span></label>
         </div>
         <div class="form-group">
             <label>自动停用阈值（失败次数）</label>

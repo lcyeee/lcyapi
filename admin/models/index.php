@@ -104,8 +104,9 @@ $m = $edit !== false ? $edit : ['id' => 0, 'name' => '', 'display_name' => '', '
                 <input type="number" name="sort" class="form-control" value="<?php echo (int)$m['sort']; ?>">
             </div>
         </div>
-        <div class="form-group">
-            <label><input type="checkbox" name="enabled" value="1" <?php echo $m['enabled'] ? 'checked' : ''; ?> style="width:auto;"> 启用模型</label>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用模型</label>
+            <label class="ios-switch"><input type="checkbox" name="enabled" value="1" <?php echo $m['enabled'] ? 'checked' : ''; ?>><span></span></label>
         </div>
         <div class="form-actions">
             <button type="submit" class="btn"><?php echo $edit !== false ? '保存修改' : '新增模型'; ?></button>

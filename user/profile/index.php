@@ -57,7 +57,7 @@ $user = Auth::user();
             <a href="<?php echo base_url('user/index.php'); ?>" class="btn btn-secondary">返回</a>
         </div>
     </form>
-    <hr style="border:none; border-top:1px solid #f1f5f9; margin:20px 0;">
+    <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
     <div class="detail-list">
         <div class="item"><div class="k">注册时间</div><div class="v"><?php echo e($user['created_at']); ?></div></div>
         <div class="item"><div class="k">最后登录</div><div class="v"><?php echo e($user['last_login_at'] ?: '-'); ?>（<?php echo e($user['last_login_ip'] ?: '-'); ?>）</div></div>

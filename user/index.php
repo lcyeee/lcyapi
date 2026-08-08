@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const accent = window.LcyTheme ? LcyTheme.accent() : '#409EFF';
     const accentRgb = window.LcyTheme ? LcyTheme.accentRgb() : '64,158,255';
     Chart.defaults.color = (window.LcyTheme && LcyTheme.isDark()) ? '#9CA3AF' : '#6B7280';
+    Chart.defaults.borderColor = 'rgba(148,163,184,.16)';
     new Chart(ctx, {
         type: 'line',
         data: { labels: labels, datasets: [{ label: '消费 ($)', data: values, borderColor: accent, backgroundColor: 'rgba(' + accentRgb + ',.1)', fill: true, tension: .35 }] },
