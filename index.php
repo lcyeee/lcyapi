@@ -14,7 +14,9 @@ if (!is_file(__DIR__ . '/config.php')) {
         echo json_encode(['error' => ['message' => '系统尚未安装，请先运行安装向导', 'type' => 'server_error', 'code' => 'not_installed']], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    redirect('install.php');
+    /* 此时 bootstrap 尚未加载，redirect()/base_url() 不可用，直接用原生跳转 */
+    header('Location: install.php');
+    exit;
 }
 
 require __DIR__ . '/includes/bootstrap.php';
