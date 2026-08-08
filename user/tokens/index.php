@@ -40,8 +40,9 @@ $tokens = Token::getByUser(Auth::id());
 <div class="card">
     <div class="card-title">创建令牌</div>
     <?php if ($newKeyFlash !== '') : ?>
-        <div class="alert alert-info">
-            新令牌已生成：<code><?php echo e($newKeyFlash); ?></code>（仅显示这一次，请妥善保管）
+        <div class="alert alert-info" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span>新令牌已生成：<code id="newTokenKey"><?php echo e($newKeyFlash); ?></code>（仅显示这一次，请妥善保管）</span>
+            <button type="button" class="btn btn-sm btn-secondary" data-copy-target="#newTokenKey"><?php echo svg_icon('copy'); ?>复制</button>
         </div>
     <?php endif; ?>
     <form method="post" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">

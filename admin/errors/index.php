@@ -53,7 +53,7 @@ $types = DB::fetchAll('SELECT DISTINCT type FROM error_logs ORDER BY type');
                 <td><?php echo $log['user_id'] ? ('#' . $log['user_id']) : '-'; ?></td>
                 <td><?php echo $log['channel_id'] ? ('#' . $log['channel_id']) : '-'; ?></td>
                 <td><?php echo e($log['model'] ?: '-'); ?></td>
-                <td style="max-width:380px;"><div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo e($log['message']); ?>"><?php echo e($log['message']); ?></div></td>
+                <td style="max-width:380px;"><div class="detail-clickable" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" data-modal-detail="<?php echo e($log['message']); ?>" data-modal-detail-title="错误详情 #<?php echo $log['id']; ?>"><?php echo e($log['message']); ?></div></td>
                 <td><?php echo e($log['created_at']); ?></td>
             </tr>
         <?php endforeach; ?>

@@ -307,6 +307,7 @@ html[data-mode="dark"] .lcy-modal-mask { background: rgba(0, 0, 0, .45); }
 .lcy-modal-mask.show .lcy-modal { transform: scale(1); }
 .lcy-modal-title { padding: 20px 20px 4px; font-size: 16px; font-weight: 600; color: var(--text); }
 .lcy-modal-msg { padding: 6px 20px 20px; font-size: 13.5px; line-height: 1.6; color: var(--text-2); }
+.lcy-modal-msg.long { max-height: 46vh; overflow-y: auto; text-align: left; word-break: break-all; white-space: pre-wrap; font-size: 12.5px; }
 .lcy-modal-actions { display: flex; border-top: 1px solid var(--border); }
 .lcy-modal-btn {
     flex: 1; padding: 12px 0; border: none; background: transparent; cursor: pointer;
@@ -316,6 +317,12 @@ html[data-mode="dark"] .lcy-modal-mask { background: rgba(0, 0, 0, .45); }
 .lcy-modal-btn.cancel { color: var(--text-2); font-weight: 500; border-right: 1px solid var(--border); }
 .lcy-modal-btn.ok { font-weight: 600; }
 .lcy-modal-btn.ok.danger { color: var(--red-text); }
+
+/* 一键复制反馈 */
+[data-copy], [data-copy-target] { cursor: pointer; transition: all .25s var(--spring); }
+[data-copy].copied, [data-copy-target].copied { color: var(--green-text) !important; transform: scale(1.12); }
+.detail-clickable { cursor: pointer; }
+.detail-clickable:hover { color: var(--accent); }
 
 /* ---------- 动画 ---------- */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

@@ -56,7 +56,9 @@
         titleEl.textContent = opts.title || '';
         titleEl.style.display = opts.title ? '' : 'none';
         msgEl.textContent = opts.message || '';
+        msgEl.classList.toggle('long', !!opts.long);
         cancelBtn.textContent = opts.cancelText || '取消';
+        cancelBtn.style.display = opts.alert ? 'none' : '';
         okBtn.textContent = opts.confirmText || '确定';
         okBtn.classList.toggle('danger', !!opts.danger);
         onConfirm = opts.onConfirm || null;
@@ -65,7 +67,61 @@
         mask.classList.add('show');
     }
 
-    window.LcyModal = { open: open, close: close };
+    window.LcyModal = {
+        open: open,
+        close: close,
+        /* 单按钮信息弹窗 */
+        alert: function (opts) {
+            if (typeof opts === 'string') { opts = { message: opts }; }
+            opts.alert = true;
+            open(opts);
+        }
+    };
+
+    /* 错误日志等长文本详情：点击 [data-modal-detail] 弹出磨砂详情弹窗 */
+    document.addEventListener('click', function (e) {
+        var el = e.target.closest ? e.target.closest('[data-modal-detail]') : null;
+        if (!el) { return; }
+        e.preventDefault();
+        open({
+            title: el.getAttribute('data-modal-detail-title') || '详情',
+            message: el.getAttribute('data-modal-detail'),
+            long: true,
+            alert: true,
+            confirmText: '关闭'
+        });
+    });
+
+    /* 一键复制：[data-copy] / [data-copy-target]，成功后按钮短暂显示已复制状态 */
+    document.addEventListener('click', function (e) {
+        var el = e.target.closest ? e.target.closest('[data-copy],[data-copy-target]') : null;
+        if (!el) { return; }
+        e.preventDefault();
+        var text = el.getAttribute('data-copy');
+        if (text === null) {
+            var t = document.querySelector(el.getAttribute('data-copy-target'));
+            text = t ? (t.value || t.textContent || '') : '';
+        }
+        var done = function () {
+            el.classList.add('copied');
+            setTimeout(function () { el.classList.remove('copied'); }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+        } else {
+            fallback();
+        }
+        function fallback() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); done(); } catch (err) { /* 忽略 */ }
+            document.body.removeChild(ta);
+        }
+    });
 
     /* 拦截带 data-confirm-msg 的表单提交：弹窗确认后再真正提交（form.submit 不再触发 submit 事件，避免死循环） */
     document.addEventListener('submit', function (e) {

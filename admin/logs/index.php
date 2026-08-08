@@ -106,7 +106,7 @@ $models = DB::fetchAll('SELECT DISTINCT model FROM logs ORDER BY model');
                 <td><?php echo e($log['created_at']); ?></td>
             </tr>
             <?php if (!$log['status'] && !empty($log['error_msg'])) : ?>
-                <tr><td colspan="11" style="color:var(--red-text); font-size:12px;">错误：<?php echo e($log['error_msg']); ?></td></tr>
+                <tr><td colspan="11" style="font-size:12px; padding-top:0;"><span class="detail-clickable" style="color:var(--red-text); display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:bottom;" data-modal-detail="<?php echo e($log['error_msg']); ?>" data-modal-detail-title="错误详情 #<?php echo $log['id']; ?>">错误：<?php echo e($log['error_msg']); ?></span></td></tr>
             <?php endif; ?>
         <?php endforeach; ?>
         </tbody>
