@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             User::update($id, ['status' => $user['status'] ? 0 : 1]);
             session_flash('flash_success', '用户状态已更新');
+            audit_log('user_toggle', "#{$id}", $user['username']);
         }
     } elseif ($action === 'promote') {
         if ((int)$id === Auth::id()) {
@@ -28,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             User::update($id, ['role' => $user['role'] === 'admin' ? 'user' : 'admin']);
             session_flash('flash_success', '用户角色已更新');
+            audit_log('user_promote', "#{$id}", $user['username'] . ' -> ' . ($user['role'] === 'admin' ? 'user' : 'admin'));
         }
     } elseif ($action === 'quota') {
         $delta = (float)($_POST['delta'] ?? 0);
@@ -40,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 User::deductQuota($id, abs($delta));
             }
             session_flash('flash_success', '额度已调整：' . ($delta > 0 ? '+' : '') . number_format($delta, 4));
+            audit_log('user_quota', "#{$id}", $user['username'] . ' 调整=' . $delta);
         }
     } elseif ($action === 'reset_pass') {
         $newPass = trim($_POST['new_pass'] ?? '');
@@ -48,6 +51,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             User::update($id, ['password' => Auth::hashPassword($newPass)]);
             session_flash('flash_success', '密码已重置');
+            audit_log('user_reset_pass', "#{$id}", $user['username']);
+        }
+    } elseif ($action === 'delete') {
+        if ((int)$id === Auth::id()) {
+            session_flash('flash_error', '不能删除自己的账号');
+        } elseif (User::delete($id)) {
+            session_flash('flash_success', '用户已删除');
+            audit_log('user_delete', "#{$id}", $user['username']);
+        } else {
+            session_flash('flash_error', '删除失败');
         }
     }
     redirect(base_url('admin/users/index.php'));
@@ -116,6 +129,13 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
                         </form>
                     <?php endif; ?>
                     <a class="btn btn-sm btn-outline" onclick="toggleRow(<?php echo $u['id']; ?>)" href="javascript:void(0)">调整额度</a>
+                    <?php if ((int)$u['id'] !== Auth::id()) : ?>
+                        <form method="post" style="display:inline-block; margin-left:4px;" data-confirm-title="删除用户" data-confirm-msg="确定删除用户「<?php echo e($u['username']); ?>」？其令牌与数据将被清除。" data-confirm-ok="删除">
+                            <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                            <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
+                            <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">删除</button>
+                        </form>
+                    <?php endif; ?>
                 </td>
             </tr>
             <tr id="ops-<?php echo $u['id']; ?>" style="display:none;">

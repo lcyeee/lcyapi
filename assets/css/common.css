@@ -197,6 +197,7 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
 .alert-success { background: var(--green-bg); color: var(--green-text); }
 .alert-danger { background: var(--red-bg); color: var(--red-text); }
 .alert-info { background: var(--accent-soft); color: var(--accent); }
+.alert-warning { background: var(--yellow-bg); color: var(--yellow-text); }
 
 /* ---------- 分页 ---------- */
 .pagination { display: flex; gap: 6px; margin-top: 14px; align-items: center; flex-wrap: wrap; }

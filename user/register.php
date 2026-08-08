@@ -7,14 +7,18 @@ if (!setting('register_enabled', '1')) {
 Auth::guestOnly();
 
 $error = '';
+/* 邀请码：URL 参数优先，其次保留表单提交值 */
+$affCode = isset($_GET['aff']) ? strtoupper(trim($_GET['aff'])) : '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_verify()) {
         $error = '页面已过期，请重试';
     } else {
+        $affCode = strtoupper(trim($_POST['aff'] ?? $affCode));
         $data = [
             'username' => isset($_POST['username']) ? trim($_POST['username']) : '',
             'email' => isset($_POST['email']) ? trim($_POST['email']) : '',
             'password' => isset($_POST['password']) ? $_POST['password'] : '',
+            'aff_code' => $affCode,
         ];
         $result = Auth::register($data);
         if ($result['ok']) {
@@ -59,6 +63,12 @@ $pageTitle = '注册';
                 <input type="password" name="password" class="form-control" required minlength="6" maxlength="64">
                 <div class="form-hint">至少 6 位</div>
             </div>
+            <?php if (setting('aff_enabled', '0') === '1') : ?>
+                <div class="form-group">
+                    <label>邀请码（选填）</label>
+                    <input type="text" name="aff" class="form-control" value="<?php echo e($affCode); ?>" placeholder="有邀请码可填写">
+                </div>
+            <?php endif; ?>
             <button type="submit" class="btn" style="width:100%;">注 册</button>
             <div class="extra">
                 <a href="<?php echo base_url('user/login.php'); ?>">已有账号，去登录</a>

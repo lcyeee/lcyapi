@@ -21,6 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $retryCount = max(0, (int)($_POST['retry_count'] ?? 0));
     $autoDisable = empty($_POST['auto_disable']) ? '0' : '1';
     $autoDisableThreshold = max(1, (int)($_POST['auto_disable_threshold'] ?? 100));
+    $affEnabled = empty($_POST['aff_enabled']) ? '0' : '1';
+    $affQuota = max(0, (float)($_POST['aff_quota'] ?? 0));
+    $checkinEnabled = empty($_POST['checkin_enabled']) ? '0' : '1';
+    $checkinReward = max(0, (float)($_POST['checkin_reward'] ?? 0));
+    $quotaRemindThreshold = max(0, (float)($_POST['quota_remind_threshold'] ?? 0));
 
     if ($name === '') {
         session_flash('flash_error', '站点名称不能为空');
@@ -40,6 +45,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setting_set('retry_count', (string)$retryCount);
     setting_set('auto_disable', $autoDisable);
     setting_set('auto_disable_threshold', (string)$autoDisableThreshold);
+    setting_set('aff_enabled', $affEnabled);
+    setting_set('aff_quota', (string)$affQuota);
+    setting_set('checkin_enabled', $checkinEnabled);
+    setting_set('checkin_reward', (string)$checkinReward);
+    setting_set('quota_remind_threshold', (string)$quotaRemindThreshold);
+
+    audit_log('settings_save', null, '系统设置已更新');
 
     session_flash('flash_success', '设置已保存');
     redirect(base_url('admin/settings/index.php'));
@@ -59,6 +71,11 @@ $relayTimeout = isset($s['relay_timeout']) ? $s['relay_timeout'] : config('relay
 $retryCount = isset($s['retry_count']) ? $s['retry_count'] : config('relay.retry_count', 0);
 $autoDisable = isset($s['auto_disable']) ? $s['auto_disable'] : (config('relay.auto_disable') ? '1' : '0');
 $autoDisableThreshold = isset($s['auto_disable_threshold']) ? $s['auto_disable_threshold'] : config('relay.auto_disable_threshold', 100);
+$affEnabled = isset($s['aff_enabled']) ? $s['aff_enabled'] : '0';
+$affQuota = isset($s['aff_quota']) ? $s['aff_quota'] : '0';
+$checkinEnabled = isset($s['checkin_enabled']) ? $s['checkin_enabled'] : '0';
+$checkinReward = isset($s['checkin_reward']) ? $s['checkin_reward'] : '0';
+$quotaRemindThreshold = isset($s['quota_remind_threshold']) ? $s['quota_remind_threshold'] : '0';
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
@@ -113,6 +130,10 @@ $autoDisableThreshold = isset($s['auto_disable_threshold']) ? $s['auto_disable_t
             <input type="number" name="default_quota" step="0.0001" min="0" class="form-control" value="<?php echo e($defaultQuota); ?>">
         </div>
         <div class="form-group">
+            <label>余额告警阈值（$，用户余额低于此值时前台提示，0=关闭）</label>
+            <input type="number" name="quota_remind_threshold" step="0.0001" min="0" class="form-control" value="<?php echo e($quotaRemindThreshold); ?>">
+        </div>
+        <div class="form-group">
             <label>系统公告（留空不展示，前台顶部显示）</label>
             <textarea name="notice" class="form-control" rows="3" placeholder="例如：本站已升级，新增 XX 模型……"><?php echo e($notice); ?></textarea>
         </div>
@@ -159,6 +180,26 @@ $autoDisableThreshold = isset($s['auto_disable_threshold']) ? $s['auto_disable_t
         <div class="form-group">
             <label>自动停用阈值（失败次数）</label>
             <input type="number" name="auto_disable_threshold" min="1" class="form-control" value="<?php echo e($autoDisableThreshold); ?>">
+        </div>
+    </div>
+
+    <div class="card" style="max-width:720px;">
+        <div class="card-title">邀请与签到</div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用邀请奖励</label>
+            <label class="ios-switch"><input type="checkbox" name="aff_enabled" value="1" <?php echo $affEnabled === '1' ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group">
+            <label>每成功邀请 1 人注册奖励（$，入邀请人待转余额）</label>
+            <input type="number" name="aff_quota" step="0.0001" min="0" class="form-control" value="<?php echo e($affQuota); ?>">
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用每日签到</label>
+            <label class="ios-switch"><input type="checkbox" name="checkin_enabled" value="1" <?php echo $checkinEnabled === '1' ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group">
+            <label>每日签到奖励（$）</label>
+            <input type="number" name="checkin_reward" step="0.0001" min="0" class="form-control" value="<?php echo e($checkinReward); ?>">
         </div>
         <div class="form-actions">
             <button type="submit" class="btn">保存设置</button>

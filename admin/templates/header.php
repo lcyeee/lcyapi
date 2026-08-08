@@ -39,6 +39,7 @@ function admin_nav($needle, $requestPath)
             <div class="group-title">日志</div>
             <a class="<?php echo admin_nav('/admin/logs/', $requestPath); ?>" href="<?php echo base_url('admin/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用日志</a>
             <a class="<?php echo admin_nav('/admin/errors/', $requestPath); ?>" href="<?php echo base_url('admin/errors/index.php'); ?>"><?php echo svg_icon('alert'); ?>错误日志</a>
+            <a class="<?php echo admin_nav('/admin/audit/', $requestPath); ?>" href="<?php echo base_url('admin/audit/index.php'); ?>"><?php echo svg_icon('shield'); ?>操作审计</a>
             <div class="group-title">运营</div>
             <a class="<?php echo admin_nav('/admin/codes/', $requestPath); ?>" href="<?php echo base_url('admin/codes/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码</a>
             <a class="<?php echo admin_nav('/admin/settings/', $requestPath); ?>" href="<?php echo base_url('admin/settings/index.php'); ?>"><?php echo svg_icon('settings'); ?>系统设置</a>

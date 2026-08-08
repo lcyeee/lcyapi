@@ -76,6 +76,10 @@ function nav_active($needle, $requestPath)
                 <?php if ($siteNotice !== '') : ?>
                     <div class="alert alert-info"><?php echo svg_icon('info'); ?><?php echo nl2br(e($siteNotice)); ?></div>
                 <?php endif; ?>
+                <?php $quotaThreshold = (float)setting('quota_remind_threshold', '0'); ?>
+                <?php if ($quotaThreshold > 0 && (float)$user['quota'] < $quotaThreshold) : ?>
+                    <div class="alert alert-warning"><?php echo svg_icon('alert'); ?>您的余额已低于 $<?php echo e(number_format($quotaThreshold, 4)); ?>，请及时充值以免影响使用。</div>
+                <?php endif; ?>
                 <script>
                     /* 表格自动包裹横向滚动容器（移动端防重叠） */
                     document.addEventListener('DOMContentLoaded', function () {

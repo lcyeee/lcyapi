@@ -10,17 +10,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $action = isset($_POST['action']) ? $_POST['action'] : '';
     $id = (int)($_POST['id'] ?? 0);
+    $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
     if ($action === 'toggle') {
         $channel = Channel::getById($id);
         if ($channel !== false) {
             Channel::update($id, ['status' => $channel['status'] ? 0 : 1]);
             session_flash('flash_success', '渠道状态已更新');
+            audit_log('channel_toggle', "#{$id}", $channel['name']);
         }
     } elseif ($action === 'delete') {
         if (Channel::delete($id)) {
             session_flash('flash_success', '渠道已删除');
+            audit_log('channel_delete', "#{$id}");
         } else {
             session_flash('flash_error', '删除失败');
+        }
+    } elseif ($action === 'copy') {
+        $channel = Channel::getById($id);
+        if ($channel === false) {
+            session_flash('flash_error', '渠道不存在');
+        } else {
+            $newId = Channel::create([
+                'name' => mb_substr($channel['name'] . '（副本）', 0, 100),
+                'type' => $channel['type'],
+                'base_url' => $channel['base_url'],
+                'api_key' => $channel['api_key'],
+                'models' => $channel['models'],
+                'weight' => (int)$channel['weight'],
+                'priority' => (int)$channel['priority'],
+                'status' => 0,
+                'remark' => $channel['remark'],
+            ]);
+            if ($newId !== false) {
+                session_flash('flash_success', '已复制为新渠道（默认停用），请编辑完善');
+                audit_log('channel_copy', "#{$id} -> #{$newId}", $channel['name']);
+                redirect(base_url('admin/channels/edit.php?id=' . (int)$newId));
+            }
+            session_flash('flash_error', '复制失败');
+        }
+    } elseif ($action === 'batch_enable' || $action === 'batch_disable') {
+        if (empty($ids)) {
+            session_flash('flash_error', '请先勾选渠道');
+        } else {
+            $status = $action === 'batch_enable' ? 1 : 0;
+            $in = implode(',', $ids);
+            DB::query('UPDATE channels SET status = ' . $status . ' WHERE id IN (' . $in . ')');
+            session_flash('flash_success', '已' . ($status ? '启用' : '停用') . ' ' . count($ids) . ' 个渠道');
+            audit_log('channel_batch_' . ($status ? 'enable' : 'disable'), null, 'ids=' . $in);
         }
     } elseif ($action === 'test') {
         $result = Channel::test($id);
@@ -43,23 +79,32 @@ $channels = Channel::all();
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
-<div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap;">
+    <form method="post" id="batchForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+        <input type="hidden" name="action" id="batchAction" value="">
+        <button type="button" class="btn btn-sm btn-success" onclick="submitBatch('batch_enable')"><?php echo svg_icon('check'); ?>批量启用</button>
+        <button type="button" class="btn btn-sm btn-warning" onclick="submitBatch('batch_disable')">批量停用</button>
+        <span class="form-hint" style="margin:0;">勾选表格左侧复选框后操作</span>
+    </form>
     <a class="btn" href="<?php echo base_url('admin/channels/edit.php'); ?>"><?php echo svg_icon('plus'); ?>新建渠道</a>
 </div>
 
 <table class="table">
     <thead>
         <tr>
+            <th style="width:36px;"><input type="checkbox" id="checkAll" onclick="toggleAll(this)"></th>
             <th>ID</th><th>名称</th><th>类型</th><th>地址</th><th>模型</th><th>权重</th>
             <th>优先级</th><th>状态</th><th>成功/失败</th><th>最后使用</th><th>操作</th>
         </tr>
     </thead>
     <tbody>
     <?php if (empty($channels)) : ?>
-        <tr><td colspan="11" class="text-center text-muted">暂无渠道，点击右上角创建</td></tr>
+        <tr><td colspan="12" class="text-center text-muted">暂无渠道，点击右上角创建</td></tr>
     <?php endif; ?>
     <?php foreach ($channels as $channel) : ?>
         <tr>
+            <td><input type="checkbox" class="ch-row" value="<?php echo $channel['id']; ?>"></td>
             <td><?php echo $channel['id']; ?></td>
             <td><?php echo e($channel['name']); ?></td>
             <td><span class="badge badge-blue"><?php echo e($channel['type']); ?></span></td>
@@ -85,6 +130,11 @@ $channels = Channel::all();
                 <form method="post" style="display:inline-block; margin-right:4px;">
                     <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
                     <input type="hidden" name="id" value="<?php echo $channel['id']; ?>">
+                    <button type="submit" name="action" value="copy" class="btn btn-sm btn-secondary">复制</button>
+                </form>
+                <form method="post" style="display:inline-block; margin-right:4px;">
+                    <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                    <input type="hidden" name="id" value="<?php echo $channel['id']; ?>">
                     <button type="submit" name="action" value="toggle" class="btn btn-sm btn-warning"><?php echo $channel['status'] ? '停用' : '启用'; ?></button>
                 </form>
                 <form method="post" style="display:inline-block;" data-confirm-title="删除渠道" data-confirm-msg="确定删除该渠道？删除后不可恢复。" data-confirm-ok="删除">
@@ -97,5 +147,34 @@ $channels = Channel::all();
     <?php endforeach; ?>
     </tbody>
 </table>
+
+<script>
+function toggleAll(box) {
+    document.querySelectorAll('.ch-row').forEach(function (c) { c.checked = box.checked; });
+}
+function submitBatch(action) {
+    var ids = [];
+    document.querySelectorAll('.ch-row:checked').forEach(function (c) { ids.push(c.value); });
+    if (!ids.length) { LcyModal.alert({ title: '批量操作', message: '请先勾选至少一个渠道' }); return; }
+    var enable = action === 'batch_enable';
+    LcyModal.open({
+        title: enable ? '批量启用渠道' : '批量停用渠道',
+        message: '确定' + (enable ? '启用' : '停用') + '已勾选的 ' + ids.length + ' 个渠道？',
+        confirmText: enable ? '启用' : '停用',
+        danger: !enable,
+        onConfirm: function () {
+            var form = document.getElementById('batchForm');
+            document.getElementById('batchAction').value = action;
+            form.querySelectorAll('input[name="ids[]"]').forEach(function (h) { h.remove(); });
+            ids.forEach(function (v) {
+                var h = document.createElement('input');
+                h.type = 'hidden'; h.name = 'ids[]'; h.value = v;
+                form.appendChild(h);
+            });
+            form.submit();
+        }
+    });
+}
+</script>
 
 <?php require dirname(__DIR__) . '/templates/footer.php'; ?>

@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result !== false) {
                 session_flash('flash_success', '令牌已创建');
                 $_SESSION['flash_token_key'] = $result['key'];
+                audit_log('token_create', "#{$result['id']}", "用户={$userId} 名称={$name}");
                 redirect(base_url('admin/tokens/index.php'));
             }
             session_flash('flash_error', '创建失败');
@@ -35,10 +36,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($token !== false) {
             Token::update($id, ['status' => $token['status'] ? 0 : 1]);
             session_flash('flash_success', '令牌状态已更新');
+            audit_log('token_toggle', "#{$id}", $token['name']);
         }
     } elseif ($action === 'delete') {
         if (Token::delete($id)) {
             session_flash('flash_success', '令牌已删除');
+            audit_log('token_delete', "#{$id}");
         } else {
             session_flash('flash_error', '删除失败');
         }
@@ -46,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $quota = (float)($_POST['remain_quota'] ?? -1);
         if (Token::update($id, ['remain_quota' => $quota])) {
             session_flash('flash_success', '令牌额度已更新');
+            audit_log('token_quota', "#{$id}", "额度={$quota}");
         }
     }
     redirect(base_url('admin/tokens/index.php'));

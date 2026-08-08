@@ -127,6 +127,24 @@ function write_log($message, $type = 'error')
     @file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
 }
 
+/**
+ * 管理操作审计日志：记录高危操作的操作者/IP/参数
+ */
+function audit_log($action, $target = null, $detail = null)
+{
+    try {
+        DB::insert('audit_logs', [
+            'admin_id' => Auth::id() ? Auth::id() : 0,
+            'action' => mb_substr($action, 0, 50),
+            'target' => $target !== null ? mb_substr((string)$target, 0, 100) : null,
+            'detail' => $detail !== null ? mb_substr((string)$detail, 0, 2000) : null,
+            'ip' => client_ip(),
+        ]);
+    } catch (Exception $ex) {
+        write_log('audit_log error: ' . $ex->getMessage());
+    }
+}
+
 function get_input_json()
 {
     $raw = file_get_contents('php://input');

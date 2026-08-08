@@ -45,10 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         Channel::update($id, $data);
         session_flash('flash_success', '渠道已更新');
+        audit_log('channel_update', "#{$id}", $data['name']);
     } else {
         $newId = Channel::create($data);
         if ($newId !== false) {
             session_flash('flash_success', '渠道已创建');
+            audit_log('channel_create', "#{$newId}", $data['name']);
         } else {
             session_flash('flash_error', '创建失败，请检查数据');
             redirect(base_url('admin/channels/edit.php'));

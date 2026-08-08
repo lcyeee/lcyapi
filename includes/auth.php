@@ -116,6 +116,10 @@ class Auth
         if ($userId === false || $userId === 0) {
             return ['ok' => false, 'msg' => '注册失败，请稍后重试'];
         }
+        /* 邀请关系绑定与奖励发放 */
+        if (setting('aff_enabled', '0') === '1' && isset($data['aff_code']) && trim($data['aff_code']) !== '') {
+            self::bindAffiliate((int)$userId, trim($data['aff_code']));
+        }
         RateLimit::recordLogin($username, true);
         session_regenerate_id(true);
         $_SESSION[self::SESSION_KEY] = (int)$userId;
@@ -126,6 +130,96 @@ class Auth
     public static function hashPassword($password)
     {
         return password_hash($password, PASSWORD_DEFAULT);
+    }
+
+    /**
+     * 绑定邀请关系：新用户记录邀请人，邀请人获得待转奖励
+     */
+    public static function bindAffiliate($userId, $affCode)
+    {
+        try {
+            $inviter = User::findByAffCode($affCode);
+            if ($inviter === false || (int)$inviter['id'] === (int)$userId || (int)$inviter['status'] !== 1) {
+                return false;
+            }
+            DB::update('users', ['aff_by' => (int)$inviter['id']], 'id = ?', [(int)$userId]);
+            $reward = (float)setting('aff_quota', '0');
+            if ($reward > 0) {
+                DB::query('UPDATE users SET aff_quota = aff_quota + ?, aff_history_quota = aff_history_quota + ? WHERE id = ?', [$reward, $reward, (int)$inviter['id']]);
+            }
+            return true;
+        } catch (Exception $ex) {
+            write_log('bindAffiliate error: ' . $ex->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 将邀请待转收益转入余额
+     */
+    public static function transferAffQuota($userId)
+    {
+        $user = User::find((int)$userId);
+        if ($user === false || (float)$user['aff_quota'] <= 0) {
+            return ['ok' => false, 'msg' => '没有可转入的邀请收益'];
+        }
+        $amount = (float)$user['aff_quota'];
+        DB::begin();
+        try {
+            DB::query('UPDATE users SET aff_quota = 0 WHERE id = ?', [(int)$userId]);
+            DB::query('UPDATE users SET quota = quota + ?, total_quota = total_quota + ? WHERE id = ?', [$amount, $amount, (int)$userId]);
+            DB::insert('recharge_logs', [
+                'user_id' => (int)$userId,
+                'amount' => $amount,
+                'type' => 'aff',
+                'remark' => '邀请收益转入',
+            ]);
+            DB::commit();
+            return ['ok' => true, 'msg' => '已转入 $' . number_format($amount, 4)];
+        } catch (Exception $ex) {
+            DB::rollback();
+            write_log('transferAffQuota error: ' . $ex->getMessage());
+            return ['ok' => false, 'msg' => '转入失败，请重试'];
+        }
+    }
+
+    /**
+     * 每日签到：同一用户同一天仅一次
+     */
+    public static function checkin($userId)
+    {
+        if (setting('checkin_enabled', '0') !== '1') {
+            return ['ok' => false, 'msg' => '签到功能未开启'];
+        }
+        $today = date('Y-m-d');
+        $exists = DB::value('SELECT id FROM checkins WHERE user_id = ? AND checkin_date = ?', [(int)$userId, $today]);
+        if ($exists !== null) {
+            return ['ok' => false, 'msg' => '今天已签到'];
+        }
+        $reward = (float)setting('checkin_reward', '0');
+        DB::begin();
+        try {
+            DB::insert('checkins', ['user_id' => (int)$userId, 'checkin_date' => $today, 'reward' => $reward]);
+            if ($reward > 0) {
+                DB::query('UPDATE users SET quota = quota + ?, total_quota = total_quota + ? WHERE id = ?', [$reward, $reward, (int)$userId]);
+                DB::insert('recharge_logs', [
+                    'user_id' => (int)$userId,
+                    'amount' => $reward,
+                    'type' => 'checkin',
+                    'remark' => '每日签到奖励',
+                ]);
+            }
+            DB::commit();
+            return ['ok' => true, 'msg' => $reward > 0 ? '签到成功，奖励 $' . number_format($reward, 4) : '签到成功'];
+        } catch (Exception $ex) {
+            DB::rollback();
+            /* 唯一索引冲突 = 并发重复签到 */
+            if (strpos($ex->getMessage(), 'Duplicate') !== false) {
+                return ['ok' => false, 'msg' => '今天已签到'];
+            }
+            write_log('checkin error: ' . $ex->getMessage());
+            return ['ok' => false, 'msg' => '签到失败，请重试'];
+        }
     }
 
     public static function verifyPassword($password, $hash)

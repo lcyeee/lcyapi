@@ -33,15 +33,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         session_flash('flash_success', "已生成 {$created} 个兑换码（批次 {$batch}）");
+        audit_log('code_generate', $batch, "数量={$created} 额度={$quota}");
         redirect(base_url('admin/codes/index.php?batch=' . urlencode($batch)));
     } elseif ($action === 'disable') {
         $id = (int)($_POST['id'] ?? 0);
         DB::update('redemptions', ['status' => 0], 'id = ?', [$id]);
         session_flash('flash_success', '兑换码已停用');
+        audit_log('code_disable', "#{$id}");
     } elseif ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
         DB::delete('redemptions', 'id = ?', [$id]);
         session_flash('flash_success', '兑换码已删除');
+        audit_log('code_delete', "#{$id}");
+    } elseif ($action === 'cleanup') {
+        /* 清理已使用与已停用的兑换码 */
+        $stmt = DB::query('DELETE FROM redemptions WHERE status = 0 OR used_at IS NOT NULL');
+        $n = $stmt->rowCount();
+        session_flash('flash_success', "已清理 {$n} 个失效兑换码");
+        audit_log('code_cleanup', null, "清理数量={$n}");
     }
     redirect(base_url('admin/codes/index.php'));
 }
@@ -84,7 +93,14 @@ $codes = DB::fetchAll('SELECT r.*, u.username AS used_by_name FROM redemptions r
 </div>
 
 <div class="card">
-    <div class="card-title">兑换码列表（共 <?php echo $total; ?> 个<?php echo $batch !== '' ? '，批次 ' . e($batch) : ''; ?>）</div>
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <span>兑换码列表（共 <?php echo $total; ?> 个<?php echo $batch !== '' ? '，批次 ' . e($batch) : ''; ?>）</span>
+        <form method="post" data-confirm-title="清理失效兑换码" data-confirm-msg="将删除所有已使用和已停用的兑换码，确定继续？" data-confirm-ok="清理">
+            <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+            <input type="hidden" name="action" value="cleanup">
+            <button type="submit" class="btn btn-sm btn-secondary"><?php echo svg_icon('trash'); ?>清理失效码</button>
+        </form>
+    </div>
     <table class="table">
         <thead>
             <tr><th>ID</th><th>兑换码</th><th>额度</th><th>状态</th><th>使用者</th><th>使用时间</th><th>批次</th><th>备注</th><th>操作</th></tr>

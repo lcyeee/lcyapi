@@ -3,6 +3,20 @@ require dirname(__DIR__, 2) . '/includes/bootstrap.php';
 Admin::requireAdmin();
 $pageTitle = '使用日志';
 
+/* 日志清理：删除 N 天前的调用记录 */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cleanup') {
+    if (!csrf_verify()) {
+        session_flash('flash_error', '表单已过期，请重试');
+        redirect(base_url('admin/logs/index.php'));
+    }
+    $days = max(1, (int)($_POST['days'] ?? 30));
+    $stmt = DB::query('DELETE FROM logs WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)', [$days]);
+    $n = $stmt->rowCount();
+    session_flash('flash_success', "已清理 {$n} 条 {$days} 天前的调用记录");
+    audit_log('log_cleanup', null, "保留天数={$days} 清理数量={$n}");
+    redirect(base_url('admin/logs/index.php'));
+}
+
 $status = isset($_GET['status']) && $_GET['status'] !== '' ? (int)$_GET['status'] : null;
 $model = isset($_GET['model']) ? trim($_GET['model']) : '';
 $userKw = isset($_GET['user']) ? trim($_GET['user']) : '';
@@ -81,7 +95,17 @@ $models = DB::fetchAll('SELECT DISTINCT model FROM logs ORDER BY model');
 </div>
 
 <div class="card">
-    <div class="card-title">调用记录（共 <?php echo $total; ?> 条）</div>
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <span>调用记录（共 <?php echo $total; ?> 条）</span>
+        <form method="post" style="display:flex; gap:8px; align-items:center;" data-confirm-title="清理历史日志" data-confirm-msg="将删除指定天数之前的所有调用记录，此操作不可恢复，确定继续？" data-confirm-ok="清理">
+            <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+            <input type="hidden" name="action" value="cleanup">
+            <span class="text-muted" style="font-size:12.5px; font-weight:normal;">保留最近</span>
+            <input type="number" name="days" min="1" max="3650" class="form-control" style="width:80px; height:32px;" value="30">
+            <span class="text-muted" style="font-size:12.5px; font-weight:normal;">天</span>
+            <button type="submit" class="btn btn-sm btn-secondary"><?php echo svg_icon('trash'); ?>清理</button>
+        </form>
+    </div>
     <table class="table">
         <thead>
             <tr><th>ID</th><th>用户</th><th>令牌</th><th>渠道</th><th>模型</th><th>Tokens</th>

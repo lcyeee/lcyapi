@@ -27,8 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ((int)$_POST['mid'] > 0) {
             Model::update((int)$_POST['mid'], $data);
             session_flash('flash_success', '模型已更新');
+            audit_log('model_save', "#{$_POST['mid']}", $data['name']);
         } elseif (Model::create($data)) {
             session_flash('flash_success', '模型已创建');
+            audit_log('model_save', null, $data['name']);
         } else {
             session_flash('flash_error', '创建失败，模型可能已存在');
         }
@@ -39,10 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($model !== false) {
             Model::update($id, ['enabled' => $model['enabled'] ? 0 : 1]);
             session_flash('flash_success', '模型状态已更新');
+            audit_log('model_toggle', "#{$id}", $model['name']);
         }
     } elseif ($action === 'delete') {
         if (Model::delete($id)) {
             session_flash('flash_success', '模型已删除');
+            audit_log('model_delete', "#{$id}");
         } else {
             session_flash('flash_error', '删除失败');
         }
