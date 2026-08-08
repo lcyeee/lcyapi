@@ -158,3 +158,19 @@ function session_flash($key, $value = null)
     }
     return '';
 }
+
+function app_installed()
+{
+    try {
+        $row = DB::fetch("SELECT value FROM settings WHERE `key` = 'installed' LIMIT 1");
+        return $row !== false && (string)$row['value'] === '1';
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function base_url($path = '')
+{
+    $url = rtrim(config('site.url', '/'), '/');
+    return $url . ($path !== '' ? '/' . ltrim($path, '/') : '');
+}

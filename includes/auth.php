@@ -187,9 +187,3 @@ class Auth
         }
     }
 }
-
-function base_url($path = '')
-{
-    $url = rtrim(config('site.url', '/'), '/');
-    return $url . ($path !== '' ? '/' . ltrim($path, '/') : '');
-}
