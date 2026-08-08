@@ -1,6 +1,10 @@
-# 运行时数据
+# 运行时数据与日志
 data/
 *.log
+*.sql.bak
+
+# 本地环境配置（含数据库密码等敏感信息，安装向导自动生成）
+config.php
 
 # 系统文件
 Thumbs.db
@@ -9,3 +13,12 @@ Thumbs.db
 # 环境/临时
 *.tmp
 .tmp/
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+
+# PHPUnit / Composer（本项目不使用，留作防误检）
+vendor/
+composer.lock
