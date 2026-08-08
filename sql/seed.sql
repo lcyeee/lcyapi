@@ -5,7 +5,7 @@ INSERT INTO users (username, email, password, nickname, role) VALUES
 ON DUPLICATE KEY UPDATE id = id;
 
 INSERT INTO settings (`key`, value, type, description) VALUES
-('site_name', 'New API', 'string', '站点名称'),
+('site_name', 'lcyapi', 'string', '站点名称'),
 ('site_description', 'AI 模型网关', 'string', '站点描述'),
 ('register_enabled', '1', 'bool', '是否开放注册'),
 ('default_quota', '0.0000', 'decimal', '新用户默认额度'),

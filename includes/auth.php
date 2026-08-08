@@ -1,7 +1,7 @@
 <?php
 class Auth
 {
-    const SESSION_KEY = 'newapi_user_id';
+    const SESSION_KEY = 'lcyapi_user_id';
 
     public static function check()
     {

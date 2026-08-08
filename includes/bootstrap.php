@@ -63,7 +63,7 @@ if (session_status() === PHP_SESSION_NONE) {
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
-    session_name('newapi_sid');
+    session_name('lcyapi_sid');
     session_start();
 }
 

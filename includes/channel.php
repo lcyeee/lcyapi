@@ -220,7 +220,7 @@ public static function test($id)
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json, text/event-stream',
-            'User-Agent: new-api-php/1.0',
+            'User-Agent: lcyapi/1.0',
         ];
         if ($type === 'azure') {
             $headers[] = 'api-key: ' . $channel['api_key'];

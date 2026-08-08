@@ -6,7 +6,7 @@ class Relay
     public static function handle($endpoint, $apiType)
     {
         self::$requestId = http_request_id();
-        header('X-New-Api-Request-Id: ' . self::$requestId);
+        header('X-Lcyapi-Request-Id: ' . self::$requestId);
 
         $auth = self::authenticate();
         if (!$auth['ok']) {
@@ -172,7 +172,7 @@ private static function forward($channel, $endpoint, $body, &$isStream)
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json, text/event-stream',
-            'User-Agent: new-api-php/1.0',
+            'User-Agent: lcyapi/1.0',
         ];
         $apiKey = isset($channel['api_key']) ? $channel['api_key'] : '';
         if (isset($channel['type']) && $channel['type'] === 'azure') {

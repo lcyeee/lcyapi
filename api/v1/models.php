@@ -41,7 +41,7 @@ foreach ($models as $model) {
         'id' => $model['name'],
         'object' => 'model',
         'created' => strtotime($model['created_at']),
-        'owned_by' => 'new-api',
+        'owned_by' => 'lcyapi',
     ];
 }
 Response::json(['object' => 'list', 'data' => $data]);

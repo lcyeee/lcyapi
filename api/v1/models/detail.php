@@ -38,5 +38,5 @@ Response::json([
     'id' => $model['name'],
     'object' => 'model',
     'created' => strtotime($model['created_at']),
-    'owned_by' => 'new-api',
+    'owned_by' => 'lcyapi',
 ]);

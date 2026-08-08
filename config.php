@@ -3,14 +3,14 @@ return [
     'db' => [
         'host' => '127.0.0.1',
         'port' => 3306,
-        'name' => 'new_api',
+        'name' => 'lcyapi',
         'user' => 'root',
         'pass' => 'root',
         'charset' => 'utf8mb4',
     ],
 
     'site' => [
-        'name' => 'New API',
+        'name' => 'lcyapi',
         'url' => 'http://127.0.0.1:8000',
         'description' => 'AI 模型网关',
         'register_enabled' => true,

@@ -1,6 +1,6 @@
-# New API PHP 版
+# lcyapi
 
-基于纯 PHP + MySQL 实现的 AI 模型网关系统，参考 [new-api](https://github.com/Calcium-Ion/new-api) 行为设计。
+基于纯 PHP + MySQL 实现的 OpenAI 兼容 AI 模型网关。
 
 ## 特性
 

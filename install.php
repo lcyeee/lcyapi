@@ -1,6 +1,6 @@
 <?php
 /**
- * New API 安装向导
+ * lcyapi 安装向导
  * 首次打开时：配置数据库连接、站点信息并创建管理员账号
  * 场景1：全新安装（无 config.php）→ 填写数据库 + 站点 + 管理员
  * 场景2：已有 config.php 未初始化 → 只需确认管理员账号
@@ -14,7 +14,7 @@ $CONFIG_FILE = $ROOT . '/config.php';
 $SQL_FILE = $ROOT . '/sql/install.sql';
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('newapi_sid');
+    session_name('lcyapi_sid');
     session_start();
 }
 if (empty($_SESSION['install_csrf'])) {
@@ -23,8 +23,8 @@ if (empty($_SESSION['install_csrf'])) {
 
 $configExists = is_file($CONFIG_FILE);
 $oldConfig = $configExists ? require $CONFIG_FILE : null;
-$dbCfg = $configExists ? $oldConfig['db'] : ['host' => '127.0.0.1', 'port' => 3306, 'name' => 'new_api', 'user' => 'root', 'pass' => '', 'charset' => 'utf8mb4'];
-$siteCfg = $configExists ? $oldConfig['site'] : ['name' => 'New API', 'url' => 'http://localhost:8000'];
+$dbCfg = $configExists ? $oldConfig['db'] : ['host' => '127.0.0.1', 'port' => 3306, 'name' => 'lcyapi', 'user' => 'root', 'pass' => '', 'charset' => 'utf8mb4'];
+$siteCfg = $configExists ? $oldConfig['site'] : ['name' => 'lcyapi', 'url' => 'http://localhost:8000'];
 
 function inst_pdo($cfg)
 {
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['_csrf']) || !hash_equals($_SESSION['install_csrf'], (string)$_POST['_csrf'])) {
         $errors[] = '表单已过期，请刷新页面后重试';
     } else {
-        $siteName = isset($_POST['site_name']) ? trim($_POST['site_name']) : ($siteCfg['name'] ?? 'New API');
+        $siteName = isset($_POST['site_name']) ? trim($_POST['site_name']) : ($siteCfg['name'] ?? 'lcyapi');
         $adminUser = isset($_POST['admin_username']) ? trim($_POST['admin_username']) : '';
         $adminEmail = isset($_POST['admin_email']) ? trim($_POST['admin_email']) : '';
         $adminPass = isset($_POST['admin_password']) ? $_POST['admin_password'] : '';
@@ -229,7 +229,7 @@ if (isset($_GET['done']) && isset($_SESSION['install_done'])) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>安装向导 - New API</title>
+<title>安装向导 - lcyapi</title>
 <script>(function(){try{var m=localStorage.getItem('lcy_mode');var d=m==='dark'||((!m||m==='auto')&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-mode',d?'dark':'light');}catch(e){}})();</script>
 <script src="assets/js/theme.js"></script>
 <link rel="stylesheet" href="assets/css/common.css">
@@ -252,7 +252,7 @@ body { display: flex; align-items: flex-start; justify-content: center; min-heig
     <button type="button" class="icon-btn install-theme-toggle" data-theme-toggle title="切换明暗模式"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
     <div class="card">
         <div class="head">
-            <h1>New API 安装向导</h1>
+            <h1>lcyapi 安装向导</h1>
             <p>首次打开请配置数据库连接并创建管理员账号</p>
         </div>
 
@@ -286,7 +286,7 @@ body { display: flex; align-items: flex-start; justify-content: center; min-heig
                     </div>
                     <div class="form-group">
                         <label>数据库名</label>
-                        <input type="text" name="db_name" class="form-control" value="<?php echo htmlspecialchars($_POST['db_name'] ?? 'new_api'); ?>" placeholder="new_api（不存在将自动创建）">
+                        <input type="text" name="db_name" class="form-control" value="<?php echo htmlspecialchars($_POST['db_name'] ?? 'lcyapi'); ?>" placeholder="lcyapi（不存在将自动创建）">
                     </div>
                     <div class="form-group">
                         <label>数据库用户</label>
