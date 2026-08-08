@@ -174,3 +174,65 @@ function base_url($path = '')
     $url = rtrim(config('site.url', '/'), '/');
     return $url . ($path !== '' ? '/' . ltrim($path, '/') : '');
 }
+
+/**
+ * 纯 SVG 线性图标（iOS 风格，24x24 视口、2px 描边）
+ * 用法：echo svg_icon('home'); 配合 CSS class="i" 控制尺寸颜色
+ */
+function svg_icon($name, $class = 'i')
+{
+    static $icons = null;
+    if ($icons === null) {
+        $icons = [
+            'home'     => '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/>',
+            'user'     => '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>',
+            'users'    => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 2.9-5.5 6.5-5.5s6.5 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.7c1.9.8 3 2.3 3 4.3"/>',
+            'channel'  => '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/>',
+            'cpu'      => '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="10" y="10" width="4" height="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M16.5 16.5 19 19M19 5l-2.5 2.5M7.5 16.5 5 19"/>',
+            'key'      => '<circle cx="8" cy="15" r="4.5"/><path d="M11.2 11.8 20 3M16 7l3 3M13.5 9.5l2 2"/>',
+            'list'     => '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>',
+            'alert'    => '<path d="M12 3 2.5 20h19L12 3z"/><path d="M12 9.5v4.5"/><circle cx="12" cy="17" r=".5"/>',
+            'gift'     => '<rect x="3" y="9" width="18" height="4" rx="1"/><path d="M5 13v8h14v-8M12 9v12"/><path d="M12 9c-4.5 0-6-1.5-6-3.5C6 3.5 8 3 9.5 4 11 5 12 9 12 9zm0 0c4.5 0 6-1.5 6-3.5C18 3.5 16 3 14.5 4 13 5 12 9 12 9z"/>',
+            'settings' => '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/>',
+            'wallet'   => '<rect x="2.5" y="6" width="19" height="14" rx="3"/><path d="M2.5 10h19"/><circle cx="17" cy="15" r="1"/>',
+            'refresh'  => '<path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/>',
+            'logout'   => '<path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M10 12h11M17 8l4 4-4 4"/>',
+            'edit'     => '<path d="M4 20h4L20 8.5a2.1 2.1 0 0 0-3-3L5.5 17 4 20z"/><path d="M14.5 7 17 9.5"/>',
+            'trash'    => '<path d="M4 7h16M9 7V4h6v3M6.5 7l1 14h9l1-14"/><path d="M10 11v6M14 11v6"/>',
+            'plus'     => '<path d="M12 5v14M5 12h14"/>',
+            'search'   => '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+            'copy'     => '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+            'check'    => '<path d="m4.5 12.5 5 5 10-11"/>',
+            'close'    => '<path d="M6 6l12 12M18 6 6 18"/>',
+            'menu'     => '<path d="M4 7h16M4 12h16M4 17h16"/>',
+            'sun'      => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+            'moon'     => '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+            'zap'      => '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>',
+            'shield'   => '<path d="M12 2 4 5.5v6c0 5 3.5 8.5 8 10.5 4.5-2 8-5.5 8-10.5v-6L12 2z"/>',
+            'chart'    => '<path d="M4 20V9M10 20V4M16 20v-8M21 20H3"/>',
+            'clock'    => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+            'dollar'   => '<circle cx="12" cy="12" r="9"/><path d="M12 6v12M15 8.5c-.8-1-4.5-1.2-4.5.9 0 2.4 4.8 1.3 4.8 3.8 0 2.2-4 2-5.3.8"/>',
+            'send'     => '<path d="m3 11 18-8-8 18-2.5-7.5L3 11z"/>',
+            'info'     => '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="8" r=".5"/>',
+            'file'     => '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/>',
+            'lock'     => '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+            'eye'      => '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+            'globe'    => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/>',
+            'tag'      => '<path d="M3 3h8l10 10-8 8L3 11V3z"/><circle cx="8" cy="8" r="1.5"/>',
+            'history'  => '<path d="M4 11a8 8 0 1 1 2.3 6.3"/><path d="M4 18v-7h7"/><path d="M12 8v4l3 2"/>',
+        ];
+    }
+    $inner = isset($icons[$name]) ? $icons[$name] : '';
+    return '<svg class="' . e($class) . '" viewBox="0 0 24 24" aria-hidden="true">' . $inner . '</svg>';
+}
+
+/**
+ * 主题引擎公共片段：防闪烁内联脚本（head 中尽早执行）+ theme.js 引入
+ */
+function theme_head_scripts()
+{
+    $inline = <<<'JS'
+(function(){try{var m=localStorage.getItem('lcy_mode');var d=m==='dark'||((!m||m==='auto')&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-mode',d?'dark':'light');}catch(e){}})();
+JS;
+    return '<script>' . $inline . '</script>' . "\n" . '<script src="' . base_url('assets/js/theme.js') . '"></script>';
+}

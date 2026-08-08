@@ -1,39 +1,104 @@
-/* 用户前台 */
-.topbar { background: #fff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 100; }
-.topbar .container { display: flex; align-items: center; height: 58px; gap: 24px; }
-.topbar .brand { font-size: 18px; font-weight: 700; color: #1e293b; }
-.topbar .brand span { color: #3b82f6; }
-.topbar nav { display: flex; gap: 4px; flex: 1; }
-.topbar nav a { color: #475569; padding: 6px 12px; border-radius: 6px; font-size: 14px; }
-.topbar nav a:hover { background: #f1f5f9; text-decoration: none; }
-.topbar nav a.active { color: #3b82f6; font-weight: 600; background: #eff6ff; }
-.topbar .user-menu { display: flex; align-items: center; gap: 12px; color: #475569; }
+/* =========================================================
+ * 用户前台（iOS 风格 · 磨砂顶栏 · 移动端底部导航）
+ * ========================================================= */
 
-.page-body { padding: 24px 0 60px; }
+/* ---------- 顶部导航（磨砂吸顶） ---------- */
+.topbar {
+    background: var(--glass);
+    backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    border-bottom: 1px solid var(--glass-border);
+    position: sticky; top: 0; z-index: 200;
+}
+.topbar .container { display: flex; align-items: center; height: 56px; gap: 18px; }
+.topbar .brand { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -.3px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.topbar .brand .brand-logo {
+    width: 28px; height: 28px; border-radius: 8px; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: inline-flex; align-items: center; justify-content: center; color: #fff;
+    box-shadow: 0 3px 9px var(--accent-border);
+}
+.topbar .brand .brand-logo .i { width: 15px; height: 15px; }
+.topbar nav { display: flex; gap: 3px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.topbar nav::-webkit-scrollbar { display: none; }
+.topbar nav a { color: var(--text-2); padding: 6px 12px; border-radius: 999px; font-size: 13.5px; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; transition: all .22s var(--ease); }
+.topbar nav a .i { width: 15px; height: 15px; }
+.topbar nav a:hover { background: var(--hover); color: var(--text); text-decoration: none; }
+.topbar nav a.active { color: var(--accent); font-weight: 600; background: var(--accent-soft); }
+.topbar nav a.admin-entry { color: var(--yellow-text); }
+.topbar .user-menu { display: flex; align-items: center; gap: 9px; color: var(--text-2); flex: none; }
+.topbar .user-menu .uname { font-size: 13px; white-space: nowrap; }
 
-.sidebar { width: 220px; flex-shrink: 0; }
-.sidebar .menu { background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); overflow: hidden; }
-.sidebar .menu a { display: block; padding: 12px 18px; color: #475569; border-left: 3px solid transparent; }
-.sidebar .menu a:hover { background: #f8fafc; text-decoration: none; }
-.sidebar .menu a.active { background: #eff6ff; border-left-color: #3b82f6; color: #3b82f6; font-weight: 600; }
-.layout { display: flex; gap: 24px; }
+/* 顶栏圆形图标按钮（.icon-btn 定义在 common.css） */
+
+/* ---------- 页面主体 ---------- */
+.page-body { padding: 18px 0 40px; }
+.layout { display: flex; gap: 18px; }
+.sidebar { width: 200px; flex-shrink: 0; }
+.sidebar .menu {
+    background: var(--card); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--glass-border); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden; padding: 7px;
+    position: sticky; top: 72px;
+}
+.sidebar .menu a {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 12px; margin-bottom: 2px;
+    color: var(--text-2); border-radius: var(--radius-sm); font-size: 13.5px;
+    transition: all .22s var(--ease);
+}
+.sidebar .menu a .i { width: 16px; height: 16px; opacity: .85; }
+.sidebar .menu a:hover { background: var(--hover); color: var(--text); text-decoration: none; }
+.sidebar .menu a:active { transform: scale(.97); }
+.sidebar .menu a.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff; font-weight: 600; box-shadow: 0 3px 12px var(--accent-border);
+}
+.sidebar .menu a.active .i { opacity: 1; }
 .main { flex: 1; min-width: 0; }
 
-.quota-box { text-align: center; padding: 24px; }
-.quota-box .amount { font-size: 32px; font-weight: 700; color: #1e293b; }
-.quota-box .label { color: #94a3b8; margin-top: 4px; }
-.quota-box .actions { margin-top: 16px; display: flex; gap: 10px; justify-content: center; }
+/* ---------- 余额卡片 ---------- */
+.quota-box { text-align: center; padding: 22px 20px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); border: none; color: #fff; position: relative; overflow: hidden; }
+.quota-box::after { content: ""; position: absolute; width: 200px; height: 200px; border-radius: 50%; background: rgba(255, 255, 255, .14); top: -110px; right: -60px; }
+.quota-box .amount { font-size: 32px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; position: relative; }
+.quota-box .label { color: rgba(255, 255, 255, .82); margin-top: 3px; font-size: 13px; position: relative; }
+.quota-box .actions { margin-top: 15px; display: flex; gap: 10px; justify-content: center; position: relative; }
+.quota-box .actions .btn { background: rgba(255, 255, 255, .92); color: var(--accent); box-shadow: none; }
 
-.kv-list { display: flex; flex-direction: column; gap: 12px; }
-.kv-list .kv { display: flex; gap: 16px; }
-.kv-list .k { color: #94a3b8; width: 120px; flex-shrink: 0; }
-.kv-list .v { color: #334155; word-break: break-all; }
+/* ---------- 键值列表 ---------- */
+.kv-list { display: flex; flex-direction: column; gap: 11px; }
+.kv-list .kv { display: flex; gap: 14px; }
+.kv-list .k { color: var(--text-3); width: 110px; flex-shrink: 0; font-size: 13px; }
+.kv-list .v { color: var(--text); word-break: break-all; font-size: 13.5px; }
 
-.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; }
-.login-card { background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); width: 100%; max-width: 400px; padding: 36px 32px; }
-.login-card h1 { font-size: 20px; text-align: center; margin-bottom: 6px; }
-.login-card .sub { text-align: center; color: #94a3b8; margin-bottom: 28px; font-size: 13px; }
-.login-card .form-group label { font-size: 13px; }
-.login-card .extra { display: flex; justify-content: space-between; margin-top: 16px; font-size: 13px; }
+/* ---------- 令牌密钥展示 ---------- */
+.token-key { display: flex; align-items: center; gap: 8px; background: var(--card-2); border: 1px dashed var(--accent-border); border-radius: var(--radius-sm); padding: 10px 14px; font-family: "SF Mono", Consolas, monospace; font-size: 13px; word-break: break-all; color: var(--text); }
 
-.token-key { display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 14px; font-family: Consolas, monospace; word-break: break-all; }
+/* ---------- 底部版权 ---------- */
+.site-footer { padding: 20px 0 32px; font-size: 12px; color: var(--text-3); text-align: center; }
+
+/* ---------- 移动端底部导航（磨砂） ---------- */
+.user-tabbar { display: none; }
+@media (max-width: 768px) {
+    .topbar nav, .topbar .user-menu .uname { display: none; }
+    .topbar .container { height: 50px; gap: 10px; }
+    .page-body { padding: 12px 0 0; }
+    .layout { flex-direction: column; gap: 0; }
+    .sidebar { display: none; }
+    .site-footer { padding-bottom: 90px; }
+    .user-tabbar {
+        display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 280;
+        background: var(--glass);
+        backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5);
+        border-top: 1px solid var(--glass-border);
+        padding: 5px 4px calc(5px + env(safe-area-inset-bottom));
+        justify-content: space-around;
+    }
+    .user-tabbar a {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+        padding: 4px 2px; font-size: 10.5px; color: var(--text-3); border-radius: 10px;
+        transition: all .2s var(--ease); text-decoration: none;
+    }
+    .user-tabbar a .i { width: 21px; height: 21px; }
+    .user-tabbar a.active { color: var(--accent); font-weight: 600; }
+    .user-tabbar a:active { transform: scale(.92); }
+}

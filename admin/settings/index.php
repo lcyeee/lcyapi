@@ -59,6 +59,35 @@ $autoDisableThreshold = isset($s['auto_disable_threshold']) ? $s['auto_disable_t
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
+<div class="card" style="max-width:720px;">
+    <div class="card-title"><?php echo svg_icon('eye'); ?>外观主题（仅影响本机显示）</div>
+    <div class="form-group">
+        <label>明暗模式</label>
+        <div class="theme-mode-group">
+            <button type="button" class="theme-mode-btn" data-theme-mode="auto"><?php echo svg_icon('refresh'); ?>跟随系统</button>
+            <button type="button" class="theme-mode-btn" data-theme-mode="light"><?php echo svg_icon('sun'); ?>亮色</button>
+            <button type="button" class="theme-mode-btn" data-theme-mode="dark"><?php echo svg_icon('moon'); ?>暗色</button>
+        </div>
+    </div>
+    <div class="form-group">
+        <label>预设配色</label>
+        <div class="theme-presets">
+            <button type="button" class="theme-preset" data-theme-preset="ice"><span class="dot" style="background:#409EFF;"></span>浅冰蓝</button>
+            <button type="button" class="theme-preset" data-theme-preset="white"><span class="dot" style="background:#5B8DEF;"></span>极简白</button>
+            <button type="button" class="theme-preset" data-theme-preset="mint"><span class="dot" style="background:#34C78B;"></span>薄荷绿</button>
+            <button type="button" class="theme-preset" data-theme-preset="lilac"><span class="dot" style="background:#8B7CF6;"></span>淡紫</button>
+            <button type="button" class="theme-preset" data-theme-preset="space"><span class="dot" style="background:#64748B;"></span>深空灰</button>
+        </div>
+    </div>
+    <div class="form-group">
+        <label>自定义主色</label>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <input type="color" id="themeAccentPicker" value="#409EFF" style="width:52px; height:38px; padding:2px; border:1px solid var(--border); border-radius:9px; background:var(--card-2); cursor:pointer;">
+            <button type="button" class="btn btn-sm btn-secondary" data-theme-reset><?php echo svg_icon('refresh'); ?>恢复默认</button>
+        </div>
+    </div>
+</div>
+
 <form method="post" action="<?php echo base_url('admin/settings/index.php'); ?>">
     <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
 

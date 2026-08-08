@@ -67,9 +67,12 @@ const ctx = document.getElementById('costChart');
 const labels = <?php echo json_encode($labels); ?>;
 const values = <?php echo json_encode($costs); ?>;
 document.addEventListener('DOMContentLoaded', () => {
+    const accent = window.LcyTheme ? LcyTheme.accent() : '#409EFF';
+    const accentRgb = window.LcyTheme ? LcyTheme.accentRgb() : '64,158,255';
+    Chart.defaults.color = (window.LcyTheme && LcyTheme.isDark()) ? '#9CA3AF' : '#6B7280';
     new Chart(ctx, {
         type: 'line',
-        data: { labels: labels, datasets: [{ label: '消费 ($)', data: values, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', fill: true, tension: .35 }] },
+        data: { labels: labels, datasets: [{ label: '消费 ($)', data: values, borderColor: accent, backgroundColor: 'rgba(' + accentRgb + ',.1)', fill: true, tension: .35 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
     });
 });

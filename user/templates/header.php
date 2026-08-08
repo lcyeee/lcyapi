@@ -15,28 +15,33 @@ function nav_active($needle, $requestPath)
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title><?php echo e($pageTitle); ?> - <?php echo e(setting('site_name', config('site.name'))); ?></title>
+<?php echo theme_head_scripts(); ?>
 <link rel="stylesheet" href="<?php echo base_url('assets/css/common.css'); ?>">
 <link rel="stylesheet" href="<?php echo base_url('assets/css/user.css'); ?>">
 </head>
 <body>
 <div class="topbar">
     <div class="container">
-        <a class="brand" href="<?php echo base_url('user/index.php'); ?>"><?php echo e(setting('site_name', config('site.name'))); ?></a>
+        <a class="brand" href="<?php echo base_url('user/index.php'); ?>">
+            <span class="brand-logo"><?php echo svg_icon('zap'); ?></span>
+            <?php echo e(setting('site_name', config('site.name'))); ?>
+        </a>
         <nav>
-            <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>">个人中心</a>
-            <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>">令牌管理</a>
-            <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>">使用记录</a>
-            <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>">钱包</a>
+            <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>"><?php echo svg_icon('home'); ?>个人中心</a>
+            <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?>令牌管理</a>
+            <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
+            <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
             <?php if (Auth::isAdmin()) : ?>
-                <a href="<?php echo base_url('admin/index.php'); ?>" style="color:#f59e0b;">后台</a>
+                <a class="admin-entry" href="<?php echo base_url('admin/index.php'); ?>"><?php echo svg_icon('shield'); ?>后台</a>
             <?php endif; ?>
         </nav>
         <div class="user-menu">
-            <span><?php echo e($user['nickname'] ?: $user['username']); ?></span>
+            <span class="uname"><?php echo e($user['nickname'] ?: $user['username']); ?></span>
             <span class="badge badge-blue">$<?php echo e(number_format((float)$user['quota'], 4)); ?></span>
-            <a href="<?php echo base_url('user/logout.php'); ?>" class="btn btn-sm btn-secondary">退出</a>
+            <button type="button" class="icon-btn" data-theme-toggle title="切换明暗模式"><?php echo svg_icon('moon'); ?></button>
+            <a href="<?php echo base_url('user/logout.php'); ?>" class="btn btn-sm btn-secondary"><?php echo svg_icon('logout'); ?>退出</a>
         </div>
     </div>
 </div>
@@ -45,12 +50,13 @@ function nav_active($needle, $requestPath)
         <div class="layout">
             <aside class="sidebar">
                 <div class="menu">
-                    <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>">个人中心</a>
-                    <a class="<?php echo nav_active('/user/profile/', $requestPath); ?>" href="<?php echo base_url('user/profile/index.php'); ?>">个人资料</a>
-                    <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>">令牌管理</a>
-                    <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>">使用记录</a>
-                    <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>">钱包</a>
-                    <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>">兑换码充值</a>
+                    <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>"><?php echo svg_icon('home'); ?>个人中心</a>
+                    <a class="<?php echo nav_active('/user/profile/', $requestPath); ?>" href="<?php echo base_url('user/profile/index.php'); ?>"><?php echo svg_icon('user'); ?>个人资料</a>
+                    <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?>令牌管理</a>
+                    <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
+                    <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
+                    <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码充值</a>
+                    <a class="<?php echo nav_active('/user/appearance/', $requestPath); ?>" href="<?php echo base_url('user/appearance/index.php'); ?>"><?php echo svg_icon('eye'); ?>外观主题</a>
                 </div>
             </aside>
             <main class="main">

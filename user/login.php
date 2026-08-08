@@ -23,12 +23,14 @@ $pageTitle = '登录';
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>用户登录 - <?php echo e(setting('site_name', config('site.name'))); ?></title>
+<?php echo theme_head_scripts(); ?>
 <link rel="stylesheet" href="<?php echo base_url('assets/css/common.css'); ?>">
 </head>
 <body>
 <div class="login-wrap">
+    <button type="button" class="icon-btn login-theme-toggle" data-theme-toggle title="切换明暗模式"><?php echo svg_icon('moon'); ?></button>
     <div class="login-card">
         <h1><?php echo e(setting('site_name', config('site.name'))); ?></h1>
         <div class="sub">用户登录</div>

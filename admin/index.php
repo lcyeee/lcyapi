@@ -31,6 +31,7 @@ for ($i = 6; $i >= 0; $i--) {
 $recentLogs = DB::fetchAll('SELECT l.*, u.username FROM logs l LEFT JOIN users u ON u.id = l.user_id ORDER BY l.id DESC LIMIT 10');
 $badChannels = DB::fetchAll('SELECT id, name, success_count, fail_count FROM channels WHERE fail_count > success_count AND fail_count > 10 ORDER BY fail_count DESC LIMIT 5');
 ?>
+<?php require dirname(__DIR__) . '/templates/header.php'; ?>
 <div class="stat-grid">
     <div class="stat-card">
         <div class="label">今日调用</div>
@@ -96,12 +97,15 @@ $badChannels = DB::fetchAll('SELECT id, name, success_count, fail_count FROM cha
 <script src="<?php echo base_url('assets/js/chart.umd.min.js'); ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    const accent = window.LcyTheme ? LcyTheme.accent() : '#409EFF';
+    const accentRgb = window.LcyTheme ? LcyTheme.accentRgb() : '64,158,255';
+    Chart.defaults.color = (window.LcyTheme && LcyTheme.isDark()) ? '#9CA3AF' : '#6B7280';
     new Chart(document.getElementById('trendChart'), {
         type: 'line',
         data: {
             labels: <?php echo json_encode($labels); ?>,
             datasets: [
-                { label: '消费 ($)', data: <?php echo json_encode($costs); ?>, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', fill: true, tension: .35, yAxisID: 'y' },
+                { label: '消费 ($)', data: <?php echo json_encode($costs); ?>, borderColor: accent, backgroundColor: 'rgba(' + accentRgb + ',.1)', fill: true, tension: .35, yAxisID: 'y' },
                 { label: '调用次数', data: <?php echo json_encode($counts); ?>, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.08)', fill: true, tension: .35, yAxisID: 'y1' }
             ]
         },
