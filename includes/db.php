@@ -59,26 +59,21 @@ class DB
     public static function update($table, $data, $where, $whereParams = [])
     {
         $sets = [];
+        $params = [];
         foreach ($data as $field => $value) {
-            $sets[] = $field . ' = :' . $field;
+            $sets[] = $field . ' = ?';
+            $params[] = $value;
         }
-        $params = self::prefixParams($data, '');
-        $i = 0;
-        $whereSql = preg_replace_callback('/\?/', function () use (&$i) {
-            return ':w' . $i++;
-        }, $where);
-        $params = array_merge($params, self::prefixParams($whereParams, 'w_'));
-        $sql = 'UPDATE ' . $table . ' SET ' . implode(',', $sets) . ' WHERE ' . $whereSql;
+        foreach ($whereParams as $value) {
+            $params[] = $value;
+        }
+        $sql = 'UPDATE ' . $table . ' SET ' . implode(',', $sets) . ' WHERE ' . $where;
         return self::query($sql, $params)->rowCount();
     }
 
     public static function delete($table, $where, $params = [])
     {
-        $i = 0;
-        $whereSql = preg_replace_callback('/\?/', function () use (&$i) {
-            return ':w' . $i++;
-        }, $where);
-        return self::query('DELETE FROM ' . $table . ' WHERE ' . $whereSql, $params)->rowCount();
+        return self::query('DELETE FROM ' . $table . ' WHERE ' . $where, $params)->rowCount();
     }
 
     public static function count($table, $where = '', $params = [])
@@ -110,18 +105,5 @@ class DB
     public static function lastInsertId()
     {
         return self::getInstance()->lastInsertId();
-    }
-
-    private static function prefixParams($params, $prefix)
-    {
-        $out = [];
-        foreach ($params as $k => $v) {
-            if (is_string($k)) {
-                $out[':' . $prefix . ltrim($k, ':')] = $v;
-            } else {
-                $out[] = $v;
-            }
-        }
-        return $out;
     }
 }

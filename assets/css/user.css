@@ -1,0 +1,39 @@
+/* 用户前台 */
+.topbar { background: #fff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 100; }
+.topbar .container { display: flex; align-items: center; height: 58px; gap: 24px; }
+.topbar .brand { font-size: 18px; font-weight: 700; color: #1e293b; }
+.topbar .brand span { color: #3b82f6; }
+.topbar nav { display: flex; gap: 4px; flex: 1; }
+.topbar nav a { color: #475569; padding: 6px 12px; border-radius: 6px; font-size: 14px; }
+.topbar nav a:hover { background: #f1f5f9; text-decoration: none; }
+.topbar nav a.active { color: #3b82f6; font-weight: 600; background: #eff6ff; }
+.topbar .user-menu { display: flex; align-items: center; gap: 12px; color: #475569; }
+
+.page-body { padding: 24px 0 60px; }
+
+.sidebar { width: 220px; flex-shrink: 0; }
+.sidebar .menu { background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); overflow: hidden; }
+.sidebar .menu a { display: block; padding: 12px 18px; color: #475569; border-left: 3px solid transparent; }
+.sidebar .menu a:hover { background: #f8fafc; text-decoration: none; }
+.sidebar .menu a.active { background: #eff6ff; border-left-color: #3b82f6; color: #3b82f6; font-weight: 600; }
+.layout { display: flex; gap: 24px; }
+.main { flex: 1; min-width: 0; }
+
+.quota-box { text-align: center; padding: 24px; }
+.quota-box .amount { font-size: 32px; font-weight: 700; color: #1e293b; }
+.quota-box .label { color: #94a3b8; margin-top: 4px; }
+.quota-box .actions { margin-top: 16px; display: flex; gap: 10px; justify-content: center; }
+
+.kv-list { display: flex; flex-direction: column; gap: 12px; }
+.kv-list .kv { display: flex; gap: 16px; }
+.kv-list .k { color: #94a3b8; width: 120px; flex-shrink: 0; }
+.kv-list .v { color: #334155; word-break: break-all; }
+
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; }
+.login-card { background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); width: 100%; max-width: 400px; padding: 36px 32px; }
+.login-card h1 { font-size: 20px; text-align: center; margin-bottom: 6px; }
+.login-card .sub { text-align: center; color: #94a3b8; margin-bottom: 28px; font-size: 13px; }
+.login-card .form-group label { font-size: 13px; }
+.login-card .extra { display: flex; justify-content: space-between; margin-top: 16px; font-size: 13px; }
+
+.token-key { display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 14px; font-family: Consolas, monospace; word-break: break-all; }
