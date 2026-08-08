@@ -1,0 +1,14 @@
+# 嵌套的 Go 原版仓库（独立 git），排除
+new-api/
+
+# 运行时数据
+data/
+*.log
+
+# 系统文件
+Thumbs.db
+.DS_Store
+
+# 环境/临时
+*.tmp
+.tmp/
