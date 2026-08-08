@@ -1,9 +1,14 @@
 <?php
-$uri = $_SERVER['REQUEST_URI'];
-$path = parse_url($uri, PHP_URL_PATH);
+$path = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
 $path = rtrim($path, '/');
 
-if ($path === '/v1' || starts_with($path, '/v1/')) {
+$isApi = strncmp($path, '/v1/', 4) === 0;
+if ($isApi) {
+    define('API_REQUEST', true);
+}
+require __DIR__ . '/includes/bootstrap.php';
+
+if ($isApi) {
     $route = ltrim(substr($path, 3), '/');
     if (preg_match('#^models/([^/]+)$#', $route, $m)) {
         $_GET['model'] = urldecode($m[1]);
@@ -12,14 +17,8 @@ if ($path === '/v1' || starts_with($path, '/v1/')) {
         $file = API_PATH . '/' . $route . '.php';
     }
     if (is_file($file)) {
-        define('API_REQUEST', true);
-        require INCLUDE_PATH . '/bootstrap.php';
         require $file;
         exit;
-    }
-    require INCLUDE_PATH . '/bootstrap.php';
-    if (function_exists('api_error_404')) {
-        api_error_404();
     }
     http_response_code(404);
     header('Content-Type: application/json; charset=utf-8');
@@ -27,5 +26,4 @@ if ($path === '/v1' || starts_with($path, '/v1/')) {
     exit;
 }
 
-require INCLUDE_PATH . '/bootstrap.php';
 redirect(config('site.url', '/'));

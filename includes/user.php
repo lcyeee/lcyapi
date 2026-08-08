@@ -78,8 +78,8 @@ class User
             return true;
         }
         $stmt = DB::query(
-            'UPDATE users SET quota = quota - :amt, used_quota = used_quota + :amt WHERE id = :id AND quota >= :amt2',
-            ['amt' => $amount, 'amt2' => $amount, 'id' => (int)$id]
+            'UPDATE users SET quota = quota - ?, used_quota = used_quota + ? WHERE id = ? AND quota >= ?',
+            [$amount, $amount, (int)$id, $amount]
         );
         return $stmt->rowCount() > 0;
     }
@@ -89,10 +89,7 @@ class User
         $amount = (float)$amount;
         DB::begin();
         try {
-            DB::query('UPDATE users SET quota = quota + :amt, total_quota = total_quota + :amt WHERE id = :id', [
-                'amt' => $amount,
-                'id' => (int)$id,
-            ]);
+            DB::query('UPDATE users SET quota = quota + ?, total_quota = total_quota + ? WHERE id = ?', [$amount, $amount, (int)$id]);
             DB::insert('recharge_logs', [
                 'user_id' => (int)$id,
                 'amount' => $amount,
@@ -119,7 +116,6 @@ class User
     {
         return DB::query('UPDATE users SET api_count = api_count + 1 WHERE id = ?', [(int)$id])->rowCount() > 0;
     }
-
     public static function count($status = null, $search = '')
     {
         $where = [];

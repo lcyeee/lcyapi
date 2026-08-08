@@ -85,6 +85,18 @@ class Cache
         return true;
     }
 
+    public static function deletePrefix($prefix)
+    {
+        $prefixHash = sha1($prefix);
+        $files = scandir(self::$path);
+        foreach ($files as $file) {
+            if (strpos($file, $prefixHash) === 0 && substr($file, -6) === '.cache') {
+                @unlink(self::$path . '/' . $file);
+            }
+        }
+        return true;
+    }
+
     public static function remember($key, $ttl, $callback)
     {
         $cached = self::get($key);

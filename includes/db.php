@@ -50,8 +50,13 @@ class DB
 
     public static function insert($table, $data)
     {
-        $fields = array_keys($data);
-        $sql = 'INSERT INTO ' . $table . ' (' . implode(',', $fields) . ') VALUES (:' . implode(',:', $fields) . ')';
+        $fields = array_map(function ($f) {
+            return '`' . $f . '`';
+        }, array_keys($data));
+        $placeholders = array_map(function ($f) {
+            return ':' . $f;
+        }, array_keys($data));
+        $sql = 'INSERT INTO ' . $table . ' (' . implode(',', $fields) . ') VALUES (' . implode(',', $placeholders) . ')';
         self::query($sql, $data);
         return (int)self::getInstance()->lastInsertId();
     }
@@ -61,7 +66,7 @@ class DB
         $sets = [];
         $params = [];
         foreach ($data as $field => $value) {
-            $sets[] = $field . ' = ?';
+            $sets[] = '`' . $field . '` = ?';
             $params[] = $value;
         }
         foreach ($whereParams as $value) {
