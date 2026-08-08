@@ -228,24 +228,28 @@ if (isset($_GET['done']) && isset($_SESSION['install_done'])) {
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>安装向导 - New API</title>
+<script>(function(){try{var m=localStorage.getItem('lcy_mode');var d=m==='dark'||((!m||m==='auto')&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-mode',d?'dark':'light');}catch(e){}})();</script>
+<script src="assets/js/theme.js"></script>
 <link rel="stylesheet" href="assets/css/common.css">
 <style>
-body { background: #f1f5f9; display: flex; align-items: flex-start; justify-content: center; min-height: 100vh; padding: 40px 16px; }
-.box { width: 100%; max-width: 620px; }
-.head { background: #1e293b; margin: -20px -20px 20px; padding: 22px 28px; border-radius: 10px 10px 0 0; }
-.head h1 { color: #fff; font-size: 20px; margin: 0 0 4px; }
-.head p { color: #94a3b8; font-size: 13px; margin: 0; }
-.step-title { font-size: 15px; font-weight: 700; margin: 24px 0 12px; color: #1e293b; display: flex; align-items: center; gap: 8px; }
-.step-title .no { width: 22px; height: 22px; border-radius: 50%; background: #3b82f6; color: #fff; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.note { background: #f8fafc; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #64748b; margin-bottom: 16px; }
-.btn { width: 100%; padding: 11px; font-size: 15px; margin-top: 8px; }
-code { background: #eef2f7; padding: 1px 6px; border-radius: 4px; }
+body { display: flex; align-items: flex-start; justify-content: center; min-height: 100vh; padding: 32px 16px; }
+.box { width: 100%; max-width: 620px; position: relative; }
+.install-theme-toggle { position: absolute; top: -4px; right: -4px; z-index: 2; width: 38px; height: 38px; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(18px); }
+.head { background: linear-gradient(135deg, var(--accent), var(--accent-2)); margin: -16px -16px 18px; padding: 22px 26px; border-radius: var(--radius) var(--radius) 0 0; position: relative; overflow: hidden; }
+.head::after { content: ""; position: absolute; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,.14); top: -100px; right: -50px; }
+.head h1 { color: #fff; font-size: 20px; margin: 0 0 4px; letter-spacing: -.3px; position: relative; }
+.head p { color: rgba(255,255,255,.85); font-size: 13px; margin: 0; position: relative; }
+.step-title { font-size: 15px; font-weight: 700; margin: 22px 0 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.step-title .no { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px var(--accent-border); }
+.note { background: var(--card-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; color: var(--text-2); margin-bottom: 16px; line-height: 1.8; }
+.install-submit { width: 100%; padding: 12px; font-size: 15px; margin-top: 8px; }
 </style>
 </head>
 <body>
 <div class="box">
+    <button type="button" class="icon-btn install-theme-toggle" data-theme-toggle title="切换明暗模式"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
     <div class="card">
         <div class="head">
             <h1>New API 安装向导</h1>
@@ -325,7 +329,7 @@ code { background: #eef2f7; padding: 1px 6px; border-radius: 4px; }
                     <input type="password" name="admin_password2" class="form-control" value="" autocomplete="new-password">
                 </div>
 
-                <button type="submit" class="btn">开始安装</button>
+                <button type="submit" class="btn install-submit">开始安装</button>
             </form>
         <?php endif; ?>
     </div>

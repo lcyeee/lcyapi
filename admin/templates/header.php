@@ -70,8 +70,15 @@ function admin_nav($needle, $requestPath)
                 <div class="alert alert-success"><?php echo e($adminFlashSuccess); ?></div>
             <?php endif; ?>
             <script>
-                /* 移动端侧边栏抽屉 */
+                /* 表格自动包裹横向滚动容器（移动端防重叠）+ 侧边栏抽屉 */
                 document.addEventListener('DOMContentLoaded', function () {
+                    document.querySelectorAll('table.table').forEach(function (t) {
+                        if (t.parentNode && t.parentNode.classList.contains('table-wrap')) { return; }
+                        var w = document.createElement('div');
+                        w.className = 'table-wrap';
+                        t.parentNode.insertBefore(w, t);
+                        w.appendChild(t);
+                    });
                     var sidebar = document.getElementById('adminSidebar');
                     var mask = document.getElementById('sidebarMask');
                     var toggle = document.getElementById('menuToggle');

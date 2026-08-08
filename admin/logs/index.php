@@ -75,8 +75,8 @@ $models = DB::fetchAll('SELECT DISTINCT model FROM logs ORDER BY model');
             <label>结束日期</label>
             <input type="date" name="to" class="form-control" style="width:150px;" value="<?php echo e($to); ?>">
         </div>
-        <button type="submit" class="btn">筛选</button>
-        <a class="btn btn-secondary" href="<?php echo base_url('admin/logs/index.php'); ?>">重置</a>
+        <button type="submit" class="btn"><?php echo svg_icon('search'); ?>筛选</button>
+        <a class="btn btn-secondary" href="<?php echo base_url('admin/logs/index.php'); ?>"><?php echo svg_icon('refresh'); ?>重置</a>
     </form>
 </div>
 

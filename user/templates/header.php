@@ -70,3 +70,15 @@ function nav_active($needle, $requestPath)
                 <?php if ($flashSuccess !== '') : ?>
                     <div class="alert alert-success"><?php echo e($flashSuccess); ?></div>
                 <?php endif; ?>
+                <script>
+                    /* 表格自动包裹横向滚动容器（移动端防重叠） */
+                    document.addEventListener('DOMContentLoaded', function () {
+                        document.querySelectorAll('table.table').forEach(function (t) {
+                            if (t.parentNode && t.parentNode.classList.contains('table-wrap')) { return; }
+                            var w = document.createElement('div');
+                            w.className = 'table-wrap';
+                            t.parentNode.insertBefore(w, t);
+                            w.appendChild(t);
+                        });
+                    });
+                </script>

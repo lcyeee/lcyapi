@@ -44,7 +44,7 @@ $channels = Channel::all();
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
 <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
-    <a class="btn" href="<?php echo base_url('admin/channels/edit.php'); ?>">+ 新建渠道</a>
+    <a class="btn" href="<?php echo base_url('admin/channels/edit.php'); ?>"><?php echo svg_icon('plus'); ?>新建渠道</a>
 </div>
 
 <table class="table">

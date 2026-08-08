@@ -109,7 +109,7 @@ $tokens = DB::fetchAll('SELECT t.*, u.username FROM tokens t LEFT JOIN users u O
         <span>令牌列表（共 <?php echo $total; ?> 个）</span>
         <form method="get" style="display:flex; gap:8px; align-items:center;">
             <input type="text" name="q" class="form-control" style="width:220px;" value="<?php echo e($keyword); ?>" placeholder="名称 / 用户 / 密钥片段">
-            <button type="submit" class="btn btn-sm">搜索</button>
+            <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>搜索</button>
         </form>
     </div>
     <table class="table">

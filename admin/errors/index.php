@@ -31,8 +31,8 @@ $types = DB::fetchAll('SELECT DISTINCT type FROM error_logs ORDER BY type');
                 <?php endforeach; ?>
             </select>
         </div>
-        <button type="submit" class="btn">筛选</button>
-        <a class="btn btn-secondary" href="<?php echo base_url('admin/errors/index.php'); ?>">重置</a>
+        <button type="submit" class="btn"><?php echo svg_icon('search'); ?>筛选</button>
+        <a class="btn btn-secondary" href="<?php echo base_url('admin/errors/index.php'); ?>"><?php echo svg_icon('refresh'); ?>重置</a>
     </form>
 </div>
 

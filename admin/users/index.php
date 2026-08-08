@@ -75,7 +75,7 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
         <span>用户列表（共 <?php echo $total; ?> 人）</span>
         <form method="get" style="display:flex; gap:8px; align-items:center;">
             <input type="text" name="q" class="form-control" style="width:220px;" value="<?php echo e($keyword); ?>" placeholder="用户名 / 邮箱 / 昵称">
-            <button type="submit" class="btn btn-sm">搜索</button>
+            <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>搜索</button>
         </form>
     </div>
     <table class="table">

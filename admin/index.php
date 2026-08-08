@@ -31,7 +31,7 @@ for ($i = 6; $i >= 0; $i--) {
 $recentLogs = DB::fetchAll('SELECT l.*, u.username FROM logs l LEFT JOIN users u ON u.id = l.user_id ORDER BY l.id DESC LIMIT 10');
 $badChannels = DB::fetchAll('SELECT id, name, success_count, fail_count FROM channels WHERE fail_count > success_count AND fail_count > 10 ORDER BY fail_count DESC LIMIT 5');
 ?>
-<?php require dirname(__DIR__) . '/templates/header.php'; ?>
+<?php require __DIR__ . '/templates/header.php'; ?>
 <div class="stat-grid">
     <div class="stat-card">
         <div class="label">今日调用</div>
@@ -119,4 +119,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
-<?php require 'templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

@@ -43,8 +43,8 @@ $models = DB::fetchAll('SELECT DISTINCT model FROM logs WHERE user_id = ? ORDER 
                 <?php endforeach; ?>
             </select>
         </div>
-        <button type="submit" class="btn">筛选</button>
-        <a class="btn btn-secondary" href="<?php echo base_url('user/logs/index.php'); ?>">重置</a>
+        <button type="submit" class="btn"><?php echo svg_icon('search'); ?>筛选</button>
+        <a class="btn btn-secondary" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('refresh'); ?>重置</a>
     </form>
 </div>
 
