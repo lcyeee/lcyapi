@@ -702,7 +702,7 @@ class Converter
         $finish = function () use (&$state, $model) {
             $out = '';
             if (!$state['started']) {
-                return $out;
+                $out .= self::sseChunk($state['id'], $model, [0 => ['delta' => ['role' => 'assistant', 'content' => '']]]);
             }
             if ($state['blockStarted']) {
                 $out .= self::claudeEvent('content_block_stop', ['type' => 'content_block_stop', 'index' => 0]);
@@ -984,5 +984,92 @@ class Converter
             'OTHER' => 'stop',
         ];
         return isset($map[$reason]) ? $map[$reason] : 'stop';
+    }
+
+    /* ============ Reasoning Effort 推理力度解析 ============ */
+
+    /**
+     * 解析模型名称中的推理力度后缀，应用到请求参数。
+     * 支持格式：o3-mini-high/gemini-pro-thinking/claude-thinking/gemini-2.5-low 等
+     * 返回 [model, reasoning_effort, thinking_budget]
+     */
+    public static function parseReasoningEffort($modelName)
+    {
+        $model = $modelName;
+        $effort = null;
+        $budget = null;
+
+        /* OpenAI 推理力度（o1/o3/gpt-5 系列） */
+        if (preg_match('/^(o[13]|gpt-5)(?:-mini)?-(high|medium|low)$/i', $model, $m)) {
+            $model = $m[1] . ($m[1] === 'o1' ? '' : '-mini');
+            $effort = strtolower($m[2]);
+        }
+
+        /* Gemini 思考模式 + 预算 */
+        if (preg_match('/^(gemini-[\w.-]+)-thinking(?:-(\d+))?$/i', $model, $m)) {
+            $model = $m[1];
+            $effort = 'thinking';
+            if (!empty($m[2])) {
+                $budget = (int)$m[2];
+            }
+        }
+
+        /* Gemini 力度后缀 */
+        if ($effort === null && preg_match('/^(gemini-[\w.-]+)-(low|medium|high)$/i', $model, $m)) {
+            $model = $m[1];
+            $effort = $m[2];
+        }
+
+        /* Claude 思考模式 */
+        if ($effort === null && preg_match('/^(claude-[\w.-]+)-thinking$/i', $model, $m)) {
+            $model = $m[1];
+            $effort = 'thinking';
+        }
+
+        return [$model, $effort, $budget];
+    }
+
+    /**
+     * 根据推理力度设置请求参数
+     */
+    public static function applyReasoningEffort(&$payload, $effort, $budget = null)
+    {
+        if ($effort === null) {
+            return;
+        }
+        if ($effort === 'thinking') {
+            $payload['thinking'] = ['type' => 'enabled'];
+            if ($budget !== null) {
+                $payload['thinking']['budget_tokens'] = $budget;
+            }
+        } else {
+            $payload['reasoning_effort'] = $effort;
+        }
+    }
+
+    /* ============ 模型映射增强 ============ */
+    /**
+     * 模型映射：支持精确匹配 + * 前缀通配 + "*" 兜底（顺序：精确 > 通配 > 兜底）
+     */
+    public static function mapModel($mapping, $model)
+    {
+        if ($mapping === '' || !is_array($mapping) || empty($mapping)) {
+            return $model;
+        }
+        if (isset($mapping[$model])) {
+            return (string)$mapping[$model];
+        }
+        foreach ($mapping as $pattern => $target) {
+            if ($pattern === '*') {
+                continue;
+            }
+            if (substr((string)$pattern, -1) === '*' && strncmp($model, rtrim((string)$pattern, '*'), strlen(rtrim((string)$pattern, '*'))) === 0) {
+                return str_replace('*', substr($model, strlen(rtrim((string)$pattern, '*'))), (string)$target);
+            }
+        }
+        if (isset($mapping['*'])) {
+            return (string)$mapping['*'];
+        }
+        return $model;
     }
 }

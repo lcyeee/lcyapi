@@ -60,6 +60,12 @@ function task_clean_expired_tokens(&$result)
     $result .= "清理过期令牌 {$deleted} 个；";
 }
 
+function task_midjourney_poll(&$result)
+{
+    $updated = Midjourney::pollPending();
+    $result .= "Midjourney 轮询：更新 {$updated} 个任务；";
+}
+
 function task_auto_health(&$result)
 {
     $channels = DB::fetchAll('SELECT * FROM channels WHERE status = 1');

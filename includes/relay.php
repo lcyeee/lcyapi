@@ -61,6 +61,14 @@ class Relay
             return self::openaiError('请提供 model 参数', 'invalid_request_error', 'model_not_found', 404);
         }
 
+        /* Reasoning Effort：解析模型名后缀（-high/-medium/-low/-thinking）并应用到请求 */
+        list($resolvedModel, $reasonEffort, $reasonBudget) = Converter::parseReasoningEffort($model);
+        if ($resolvedModel !== $model) {
+            $model = $resolvedModel;
+            $payload['model'] = $resolvedModel;
+            Converter::applyReasoningEffort($payload, $reasonEffort, $reasonBudget);
+        }
+
         $price = Model::find($model);
         if ($price === false || (int)$price['enabled'] !== 1) {
             return self::openaiError('模型 ' . $model . ' 不存在或已停用', 'invalid_request_error', 'model_not_found', 404);
@@ -155,6 +163,11 @@ class Relay
                 Affinity::pin($user['id'], $model, (int)$channel['id']);
                 if (!empty($result['body'])) {
                     $finalBody = Sensitive::enabled() ? self::maskResponseBody($result['body']) : $result['body'];
+                    $responseData = json_decode($finalBody, true);
+                    if (is_array($responseData)) {
+                        Converter::thinkingToContent($responseData);
+                        $finalBody = json_encode($responseData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+                    }
                     header('Content-Type: application/json; charset=utf-8');
                     echo $finalBody;
                 }

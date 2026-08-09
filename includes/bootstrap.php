@@ -36,7 +36,8 @@ spl_autoload_register(function ($class) {
         'Recharge' => 'recharge', 'Dashboard' => 'dashboard', 'Group' => 'group',
         'ChannelType' => 'channel_types', 'Converter' => 'converter', 'OAuth' => 'oauth', 'TOTP' => 'totp',
         'Mailer' => 'mailer', 'PayOrder' => 'pay_order', 'Sensitive' => 'sensitive',
-        'Affinity' => 'affinity',
+        'Affinity' => 'affinity', 'Rankings' => 'rankings', 'Notify' => 'notify',
+        'PerfMetrics' => 'perf_metrics', 'UsageData' => 'usedata', 'ChatPreset' => 'chat_preset',
     ];
     if (isset($map[$class])) {
         $file = INCLUDE_PATH . '/' . $map[$class] . '.php';

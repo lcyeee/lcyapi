@@ -4,18 +4,20 @@
  */
 class OAuth
 {
-    const PROVIDERS = ['github', 'telegram'];
+    const PROVIDERS = ['github', 'telegram', 'discord', 'linuxdo', 'oidc', 'wechat'];
 
     public static function enabled($provider)
     {
         $provider = self::normalize($provider);
-        if ($provider === 'github') {
-            return setting('oauth_github_enabled', '0') === '1';
-        }
-        if ($provider === 'telegram') {
-            return setting('oauth_telegram_enabled', '0') === '1';
-        }
-        return false;
+        $map = [
+            'github' => 'oauth_github_enabled',
+            'telegram' => 'oauth_telegram_enabled',
+            'discord' => 'oauth_discord_enabled',
+            'linuxdo' => 'oauth_linuxdo_enabled',
+            'oidc' => 'oauth_oidc_enabled',
+            'wechat' => 'oauth_wechat_enabled',
+        ];
+        return isset($map[$provider]) && setting($map[$provider], '0') === '1';
     }
 
     private static function normalize($provider)
@@ -30,34 +32,36 @@ class OAuth
     public static function authorizeUrl($provider)
     {
         $provider = self::normalize($provider);
+        if (!self::enabled($provider)) {
+            return '';
+        }
+        $state = self::state();
+        $redirect = base_url('user/oauth.php?provider=' . $provider);
         if ($provider === 'github') {
-            if (!self::enabled('github')) {
-                return '';
-            }
             $clientId = setting('oauth_github_client_id', '');
-            $state = self::state();
-            $params = http_build_query([
-                'client_id' => $clientId,
-                'redirect_uri' => base_url('user/oauth.php?provider=github'),
-                'scope' => 'user:email',
-                'state' => $state,
-            ]);
-            return 'https://github.com/login/oauth/authorize?' . $params;
+            return 'https://github.com/login/oauth/authorize?' . http_build_query(['client_id' => $clientId, 'redirect_uri' => $redirect, 'scope' => 'user:email', 'state' => $state]);
         }
         if ($provider === 'telegram') {
-            if (!self::enabled('telegram')) {
-                return '';
-            }
             $bot = setting('oauth_telegram_bot_username', '');
-            $state = self::state();
-            $params = http_build_query([
-                'bot_id' => self::telegramBotId(),
-                'origin' => base_url(),
-                'redirect' => base_url('user/oauth.php?provider=telegram'),
-                'request_access' => 'write',
-                'return_to' => 'lcyapi_oauth_' . $state,
-            ]);
-            return 'https://oauth.telegram.org/auth?' . $params;
+            return 'https://oauth.telegram.org/auth?' . http_build_query(['bot_id' => self::telegramBotId(), 'origin' => base_url(), 'redirect' => $redirect, 'request_access' => 'write', 'return_to' => 'lcyapi_oauth_' . $state]);
+        }
+        if ($provider === 'discord') {
+            $clientId = setting('oauth_discord_client_id', '');
+            return 'https://discord.com/api/oauth2/authorize?' . http_build_query(['client_id' => $clientId, 'redirect_uri' => $redirect, 'response_type' => 'code', 'scope' => 'identify', 'state' => $state]);
+        }
+        if ($provider === 'linuxdo') {
+            $clientId = setting('oauth_linuxdo_client_id', '');
+            $baseUrl = rtrim(setting('oauth_linuxdo_base_url', 'https://connect.linux.do'), '/');
+            return $baseUrl . '/oauth2/authorize?' . http_build_query(['client_id' => $clientId, 'redirect_uri' => $redirect, 'response_type' => 'code', 'scope' => 'read', 'state' => $state]);
+        }
+        if ($provider === 'oidc') {
+            $clientId = setting('oauth_oidc_client_id', '');
+            $baseUrl = rtrim(setting('oauth_oidc_issuer', ''), '/');
+            return $baseUrl . '/authorize?' . http_build_query(['client_id' => $clientId, 'redirect_uri' => $redirect, 'response_type' => 'code', 'scope' => 'openid profile email', 'state' => $state]);
+        }
+        if ($provider === 'wechat') {
+            $appId = setting('oauth_wechat_app_id', '');
+            return 'https://open.weixin.qq.com/connect/qrconnect?' . http_build_query(['appid' => $appId, 'redirect_uri' => $redirect, 'response_type' => 'code', 'scope' => 'snsapi_login', 'state' => $state]) . '#wechat_redirect';
         }
         return '';
     }
@@ -101,6 +105,18 @@ class OAuth
         }
         if ($provider === 'telegram') {
             return self::telegramCallback();
+        }
+        if ($provider === 'discord') {
+            return self::discordCallback();
+        }
+        if ($provider === 'linuxdo') {
+            return self::linuxdoCallback();
+        }
+        if ($provider === 'oidc') {
+            return self::oidcCallback();
+        }
+        if ($provider === 'wechat') {
+            return self::wechatCallback();
         }
         return ['ok' => false, 'msg' => '不支持的登录方式'];
     }
@@ -178,6 +194,103 @@ class OAuth
             'avatar' => '',
             'email' => '',
         ];
+    }
+
+    private static function discordCallback()
+    {
+        $code = isset($_GET['code']) ? trim((string)$_GET['code']) : '';
+        if ($code === '') {
+            return ['ok' => false, 'msg' => '授权失败（缺少 code）'];
+        }
+        $clientId = setting('oauth_discord_client_id', '');
+        $clientSecret = setting('oauth_discord_client_secret', '');
+        $resp = self::httpPostJson('https://discord.com/api/oauth2/token', [
+            'client_id' => $clientId, 'client_secret' => $clientSecret, 'code' => $code,
+            'grant_type' => 'authorization_code', 'redirect_uri' => base_url('user/oauth.php?provider=discord'),
+        ]);
+        if (!$resp['ok'] || empty($resp['json']['access_token'])) {
+            return ['ok' => false, 'msg' => 'Discord 令牌换取失败'];
+        }
+        $userResp = self::httpGetJson('https://discord.com/api/users/@me', ['Authorization: Bearer ' . $resp['json']['access_token']]);
+        if (!$userResp['ok'] || empty($userResp['json']['id'])) {
+            return ['ok' => false, 'msg' => 'Discord 用户信息获取失败'];
+        }
+        $u = $userResp['json'];
+        return ['ok' => true, 'provider' => 'discord', 'openid' => (string)$u['id'], 'username' => mb_substr($u['username'] ?? '', 0, 50), 'avatar' => '', 'email' => ''];
+    }
+
+    private static function linuxdoCallback()
+    {
+        $code = isset($_GET['code']) ? trim((string)$_GET['code']) : '';
+        if ($code === '') {
+            return ['ok' => false, 'msg' => '授权失败（缺少 code）'];
+        }
+        $clientId = setting('oauth_linuxdo_client_id', '');
+        $clientSecret = setting('oauth_linuxdo_client_secret', '');
+        $baseUrl = rtrim(setting('oauth_linuxdo_base_url', 'https://connect.linux.do'), '/');
+        $resp = self::httpPostJson($baseUrl . '/oauth2/token', [
+            'client_id' => $clientId, 'client_secret' => $clientSecret, 'code' => $code,
+            'grant_type' => 'authorization_code', 'redirect_uri' => base_url('user/oauth.php?provider=linuxdo'),
+        ]);
+        if (!$resp['ok'] || empty($resp['json']['access_token'])) {
+            return ['ok' => false, 'msg' => 'LinuxDO 令牌换取失败'];
+        }
+        $userResp = self::httpGetJson($baseUrl . '/api/user', ['Authorization: Bearer ' . $resp['json']['access_token']]);
+        if (!$userResp['ok'] || empty($userResp['json']['id'])) {
+            return ['ok' => false, 'msg' => 'LinuxDO 用户信息获取失败'];
+        }
+        $u = $userResp['json'];
+        return ['ok' => true, 'provider' => 'linuxdo', 'openid' => (string)$u['id'], 'username' => mb_substr($u['username'] ?? '', 0, 50), 'avatar' => $u['avatar_url'] ?? '', 'email' => $u['email'] ?? ''];
+    }
+
+    private static function oidcCallback()
+    {
+        $code = isset($_GET['code']) ? trim((string)$_GET['code']) : '';
+        if ($code === '') {
+            return ['ok' => false, 'msg' => '授权失败（缺少 code）'];
+        }
+        $clientId = setting('oauth_oidc_client_id', '');
+        $clientSecret = setting('oauth_oidc_client_secret', '');
+        $issuer = rtrim(setting('oauth_oidc_issuer', ''), '/');
+        $resp = self::httpPostJson($issuer . '/token', [
+            'client_id' => $clientId, 'client_secret' => $clientSecret, 'code' => $code,
+            'grant_type' => 'authorization_code', 'redirect_uri' => base_url('user/oauth.php?provider=oidc'),
+        ]);
+        if (!$resp['ok'] || empty($resp['json']['id_token'])) {
+            return ['ok' => false, 'msg' => 'OIDC 令牌换取失败'];
+        }
+        $parts = explode('.', $resp['json']['id_token']);
+        if (count($parts) !== 3) {
+            return ['ok' => false, 'msg' => 'ID Token 格式无效'];
+        }
+        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
+        if (!is_array($payload) || empty($payload['sub'])) {
+            return ['ok' => false, 'msg' => 'ID Token 解析失败'];
+        }
+        return ['ok' => true, 'provider' => 'oidc', 'openid' => (string)$payload['sub'], 'username' => mb_substr($payload['preferred_username'] ?? $payload['name'] ?? $payload['sub'], 0, 50), 'avatar' => $payload['picture'] ?? '', 'email' => $payload['email'] ?? ''];
+    }
+
+    private static function wechatCallback()
+    {
+        $code = isset($_GET['code']) ? trim((string)$_GET['code']) : '';
+        if ($code === '') {
+            return ['ok' => false, 'msg' => '授权失败（缺少 code）'];
+        }
+        $appId = setting('oauth_wechat_app_id', '');
+        $secret = setting('oauth_wechat_app_secret', '');
+        $resp = self::httpGetJson('https://api.weixin.qq.com/sns/oauth2/access_token?appid=' . urlencode($appId) . '&secret=' . urlencode($secret) . '&code=' . urlencode($code) . '&grant_type=authorization_code');
+        if (!$resp['ok'] || empty($resp['json']['openid'])) {
+            return ['ok' => false, 'msg' => '微信登录失败'];
+        }
+        $openid = $resp['json']['openid'];
+        $userResp = self::httpGetJson('https://api.weixin.qq.com/sns/userinfo?access_token=' . urlencode($resp['json']['access_token']) . '&openid=' . urlencode($openid));
+        $nickname = '';
+        $avatar = '';
+        if ($userResp['ok'] && !empty($userResp['json']['nickname'])) {
+            $nickname = mb_substr($userResp['json']['nickname'], 0, 50);
+            $avatar = $userResp['json']['headimgurl'] ?? '';
+        }
+        return ['ok' => true, 'provider' => 'wechat', 'openid' => $openid, 'username' => $nickname, 'avatar' => $avatar, 'email' => ''];
     }
 
     /**

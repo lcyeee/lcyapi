@@ -18,7 +18,7 @@ class PayOrder
         $id = DB::insert('pay_orders', [
             'order_no' => $orderNo,
             'user_id' => (int)$userId,
-            'provider' => in_array($provider, ['epay', 'stripe'], true) ? $provider : 'epay',
+            'provider' => in_array($provider, ['epay', 'stripe', 'creem', 'waffo'], true) ? $provider : 'epay',
             'amount' => $amount,
             'quota' => $quota,
             'status' => 'pending',
@@ -249,5 +249,126 @@ class PayOrder
             return null;
         }
         return json_decode($payload, true);
+    }
+
+    /* ============ Creem ============ */
+
+    public static function creemCreateCheckout($orderNo)
+    {
+        $order = self::findByOrderNo($orderNo);
+        if ($order === false) {
+            return ['ok' => false, 'msg' => '订单不存在'];
+        }
+        $apiKey = setting('creem_api_key', '');
+        $productId = setting('creem_product_id', '');
+        if ($apiKey === '' || $productId === '') {
+            return ['ok' => false, 'msg' => 'Creem 未配置完整'];
+        }
+        $siteName = setting('site_name', config('site.name'));
+        $body = json_encode([
+            'product_id' => $productId,
+            'return_url' => base_url('user/wallet/pay-result.php?order_no=' . $orderNo . '&provider=creem'),
+            'metadata' => ['order_no' => $orderNo],
+        ], JSON_UNESCAPED_SLASHES);
+        $ch = curl_init('https://creem.io/api/v1/checkouts');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-Api-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_TIMEOUT => 20,
+        ]);
+        $resp = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $json = json_decode((string)$resp, true);
+        if ($code < 200 || $code >= 300 || empty($json['checkout_url'])) {
+            return ['ok' => false, 'msg' => 'Creem 创建失败：' . (isset($json['error']) ? (is_array($json['error']) ? json_encode($json['error']) : $json['error']) : 'HTTP ' . $code)];
+        }
+        DB::update('pay_orders', ['pay_url' => $json['checkout_url']], 'order_no = ?', [$orderNo]);
+        return ['ok' => true, 'checkout_url' => $json['checkout_url']];
+    }
+
+    /**
+     * Creem Webhook 验签（HMAC-SHA256）
+     */
+    public static function creemWebhook($payload, $sigHeader)
+    {
+        $webhookSecret = setting('creem_webhook_secret', '');
+        if ($webhookSecret === '') {
+            return ['ok' => false, 'msg' => 'Creem Webhook 密钥未配置', 'code' => 400];
+        }
+        $expected = hash_hmac('sha256', (string)$payload, $webhookSecret);
+        if (!hash_equals($expected, (string)$sigHeader)) {
+            return ['ok' => false, 'msg' => '签名校验失败', 'code' => 400];
+        }
+        $event = json_decode($payload, true);
+        if (!is_array($event)) {
+            return ['ok' => false, 'msg' => '事件格式错误', 'code' => 400];
+        }
+        $orderNo = isset($event['metadata']['order_no']) ? $event['metadata']['order_no'] : (isset($event['order_no']) ? $event['order_no'] : '');
+        if ($orderNo !== '') {
+            self::markPaid($orderNo, isset($event['id']) ? (string)$event['id'] : null);
+        }
+        return ['ok' => true];
+    }
+
+    /* ============ Waffo ============ */
+
+    public static function waffoCreateCheckout($orderNo)
+    {
+        $order = self::findByOrderNo($orderNo);
+        if ($order === false) {
+            return ['ok' => false, 'msg' => '订单不存在'];
+        }
+        $apiKey = setting('waffo_api_key', '');
+        $baseUrl = rtrim(setting('waffo_api_url', 'https://sandbox.waffo.ai'), '/');
+        if ($apiKey === '') {
+            return ['ok' => false, 'msg' => 'Waffo 未配置'];
+        }
+        $siteName = setting('site_name', config('site.name'));
+        $body = json_encode([
+            'merchant_ref' => $orderNo,
+            'items' => [['description' => $siteName . ' 额度充值', 'amount' => (float)$order['amount'], 'currency' => 'USD']],
+            'success_url' => base_url('user/wallet/pay-result.php?order_no=' . $orderNo . '&provider=waffo'),
+        ], JSON_UNESCAPED_SLASHES);
+        $ch = curl_init($baseUrl . '/v1/checkout');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_TIMEOUT => 20,
+        ]);
+        $resp = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $json = json_decode((string)$resp, true);
+        if ($code < 200 || $code >= 300 || empty($json['checkout_url'])) {
+            return ['ok' => false, 'msg' => 'Waffo 创建失败：' . (isset($json['error']) ? (is_array($json['error']) ? json_encode($json['error']) : $json['error']) : 'HTTP ' . $code)];
+        }
+        DB::update('pay_orders', ['pay_url' => $json['checkout_url']], 'order_no = ?', [$orderNo]);
+        return ['ok' => true, 'checkout_url' => $json['checkout_url']];
+    }
+
+    /**
+     * Waffo Webhook 验签（X-SIGNATURE）
+     */
+    public static function waffoWebhook($payload, $sigHeader)
+    {
+        $webhookSecret = setting('waffo_webhook_secret', '');
+        if ($webhookSecret === '') {
+            return ['ok' => false, 'msg' => 'Waffo Webhook 密钥未配置', 'code' => 400];
+        }
+        $expected = hash_hmac('sha256', (string)$payload, $webhookSecret);
+        if (!hash_equals($expected, (string)$sigHeader)) {
+            return ['ok' => false, 'msg' => '签名校验失败', 'code' => 400];
+        }
+        $event = json_decode($payload, true);
+        if (!is_array($event)) {
+            return ['ok' => false, 'msg' => '事件格式错误', 'code' => 400];
+        }
+        $orderNo = isset($event['merchant_ref']) ? $event['merchant_ref'] : (isset($event['order_no']) ? $event['order_no'] : '');
+        $status = isset($event['status']) ? $event['status'] : '';
+        if ($orderNo !== '' && ($status === 'paid' || $status === 'succeeded' || $status === 'completed')) {
+            self::markPaid($orderNo, isset($event['id']) ? (string)$event['id'] : null);
+        }
+        return ['ok' => true];
     }
 }

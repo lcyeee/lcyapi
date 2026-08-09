@@ -27,7 +27,21 @@ class ChannelType
         'cohere'      => ['name' => 'Cohere',            'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.cohere.ai'],
         'jina'        => ['name' => 'Jina',              'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.jina.ai/v1'],
         'sub2api'     => ['name' => 'Sub2API',           'auth' => 'bearer',        'format' => 'openai', 'base_url' => ''],
-        'lcyapi' => ['name' => 'lcyapi',           'auth' => 'bearer',        'format' => 'openai', 'base_url' => ''],
+        'lcyapi'      => ['name' => 'lcyapi',            'auth' => 'bearer',        'format' => 'openai', 'base_url' => ''],
+        /* 新增渠道类型 */
+        'perplexity'  => ['name' => 'Perplexity',        'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.perplexity.ai'],
+        'vertex'      => ['name' => 'Vertex AI',         'auth' => 'bearer',        'format' => 'gemini', 'base_url' => ''],
+        'aws'         => ['name' => 'AWS Bedrock',       'auth' => 'bearer',        'format' => 'openai', 'base_url' => ''],
+        'lingyi'      => ['name' => '零一万物 Yi',        'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.lingyiwanwu.com/v1'],
+        'minimax'     => ['name' => 'MiniMax',           'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.minimax.chat/v1'],
+        'cloudflare'  => ['name' => 'Cloudflare AI',     'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.cloudflare.com/client/v4'],
+        'xinference'  => ['name' => 'Xinference',        'auth' => 'none',          'format' => 'openai', 'base_url' => ''],
+        'jimeng'      => ['name' => '即梦（字节跳动）',    'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://visual.volcengineapi.com'],
+        '360'         => ['name' => '360 智脑',          'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.360.cn/v1'],
+        'replicate'   => ['name' => 'Replicate',         'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.replicate.com/v1'],
+        'coze'        => ['name' => 'Coze（扣子）',       'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.coze.cn'],
+        'dify'        => ['name' => 'Dify',              'auth' => 'bearer',        'format' => 'openai', 'base_url' => 'https://api.dify.ai/v1'],
+        'suno'        => ['name' => 'Suno',              'auth' => 'bearer',        'format' => 'openai', 'base_url' => ''],
     ];
 
     public static function get($type)

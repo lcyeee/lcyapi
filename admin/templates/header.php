@@ -47,6 +47,10 @@ function admin_nav($needle, $requestPath)
             <a class="<?php echo admin_nav('/admin/subscriptions/', $requestPath); ?>" href="<?php echo base_url('admin/subscriptions/index.php'); ?>"><?php echo svg_icon('crown'); ?>订阅套餐</a>
             <a class="<?php echo admin_nav('/admin/system/index.php', $requestPath); ?>" href="<?php echo base_url('admin/system/index.php'); ?>"><?php echo svg_icon('server'); ?>系统任务/实例</a>
             <a class="<?php echo admin_nav('/admin/system/status.php', $requestPath); ?>" href="<?php echo base_url('admin/system/status.php'); ?>"><?php echo svg_icon('chart'); ?>系统占用</a>
+            <a class="<?php echo admin_nav('/admin/system/sessions.php', $requestPath); ?>" href="<?php echo base_url('admin/system/sessions.php'); ?>"><?php echo svg_icon('lock'); ?>会话管理</a>
+            <a class="<?php echo admin_nav('/admin/rankings/', $requestPath); ?>" href="<?php echo base_url('admin/rankings/index.php'); ?>"><?php echo svg_icon('chart'); ?>排行榜</a>
+            <a class="<?php echo admin_nav('/admin/perf_metrics.php', $requestPath); ?>" href="<?php echo base_url('admin/perf_metrics.php'); ?>"><?php echo svg_icon('cpu'); ?>性能指标</a>
+            <a class="<?php echo admin_nav('/admin/usage_stats.php', $requestPath); ?>" href="<?php echo base_url('admin/usage_stats.php'); ?>"><?php echo svg_icon('dollar'); ?>用量统计</a>
             <a class="<?php echo admin_nav('/admin/settings/', $requestPath); ?>" href="<?php echo base_url('admin/settings/index.php'); ?>"><?php echo svg_icon('settings'); ?>系统设置</a>
         </nav>
     </aside>
