@@ -909,7 +909,19 @@ class Converter
             : (isset($u['output_tokens']) ? $u['output_tokens']
             : (isset($u['candidatesTokenCount']) ? $u['candidatesTokenCount']
             : (isset($u['completion_token_count']) ? $u['completion_token_count'] : 0)));
-        return ['prompt_tokens' => (int)$p, 'completion_tokens' => (int)$c];
+        /* 缓存命中/写入 tokens：OpenAI(usage.prompt_tokens_details.cached_tokens) / Claude(cache_read/cache_creation) / Gemini(cachedContentTokenCount) */
+        $cached = 0;
+        if (is_array($u)) {
+            if (isset($u['prompt_tokens_details']['cached_tokens'])) {
+                $cached = (int)$u['prompt_tokens_details']['cached_tokens'];
+            } elseif (isset($u['cache_read_input_tokens'])) {
+                $cached = (int)$u['cache_read_input_tokens'];
+            } elseif (isset($u['cachedContentTokenCount'])) {
+                $cached = (int)$u['cachedContentTokenCount'];
+            }
+        }
+        $cached = max(0, min($cached, (int)$p));
+        return ['prompt_tokens' => (int)$p, 'completion_tokens' => (int)$c, 'cached_tokens' => $cached];
     }
 
     /** 流式缓冲提取 usage：兼容 OpenAI/Claude/Gemini 的 data 块 */

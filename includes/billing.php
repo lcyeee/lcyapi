@@ -6,11 +6,16 @@ class Billing
         return Model::find($modelName);
     }
 
-    public static function calculate($priceRow, $promptTokens, $completionTokens)
+    public static function calculate($priceRow, $promptTokens, $completionTokens, $cachedTokens = 0)
     {
         $inputPrice = (float)$priceRow['input_price'];
         $outputPrice = (float)$priceRow['output_price'];
-        $cost = (($promptTokens / 1000) * $inputPrice) + (($completionTokens / 1000) * $outputPrice);
+        $cachedTokens = max(0, min((int)$cachedTokens, max(0, (int)$promptTokens)));
+        $uncached = max(0, (int)$promptTokens - $cachedTokens);
+        $cachePrice = isset($priceRow['cache_input_price']) && (float)$priceRow['cache_input_price'] >= 0
+            ? (float)$priceRow['cache_input_price']
+            : $inputPrice;
+        $cost = (($uncached / 1000) * $inputPrice) + (($cachedTokens / 1000) * $cachePrice) + (($completionTokens / 1000) * $outputPrice);
         return max(0, $cost);
     }
 

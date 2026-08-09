@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS models (
     tags VARCHAR(255) DEFAULT NULL COMMENT '标签，逗号分隔',
     input_price DECIMAL(10,6) NOT NULL DEFAULT 0.000000,
     output_price DECIMAL(10,6) NOT NULL DEFAULT 0.000000,
+    cache_input_price DECIMAL(10,6) NOT NULL DEFAULT -1.000000 COMMENT '缓存命中输入价(US$/1M, -1=与input_price相同)',
     context_length INT UNSIGNED NOT NULL DEFAULT 4096,
     max_output INT UNSIGNED NOT NULL DEFAULT 2048,
     type ENUM('chat','completion','embedding','image','audio') NOT NULL DEFAULT 'chat',
@@ -243,6 +244,16 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_sid (sid_hash),
     KEY idx_user (user_id)
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS channel_affinity (
+    user_id INT UNSIGNED NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    channel_id INT UNSIGNED NOT NULL,
+    pinned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, model),
+    KEY idx_channel (channel_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS oauth_bindings (

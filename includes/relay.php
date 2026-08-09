@@ -100,17 +100,43 @@ class Relay
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
             $selectedGroup = null;
             $channel = false;
-            foreach ($groups as $g) {
-                $channel = Channel::select($model, $excludeIds, $g);
-                if ($channel !== false) {
-                    $selectedGroup = $g;
-                    break;
+            /* 渠道亲和性：会话期优先复用上次成功的渠道 */
+            if ($attempt === 0) {
+                $affinityId = Affinity::get($user['id'], $model);
+                if ($affinityId > 0 && !in_array($affinityId, $excludeIds, true)) {
+                    $affinityChannel = Channel::getById($affinityId);
+                    $inAffinityGroups = false;
+                    if ($affinityChannel !== false) {
+                        foreach ($groups as $g) {
+                            if (Channel::inGroup($affinityChannel, $g)) {
+                                $inAffinityGroups = true;
+                                break;
+                            }
+                        }
+                    }
+                    if ($affinityChannel !== false && (int)$affinityChannel['status'] === 1 && Channel::supportsModel($affinityChannel, $model) && $inAffinityGroups) {
+                        $channel = $affinityChannel;
+                    } else {
+                        Affinity::clear($user['id'], $model);
+                    }
+                }
+            }
+            if ($channel === false) {
+                foreach ($groups as $g) {
+                    $channel = Channel::select($model, $excludeIds, $g);
+                    if ($channel !== false) {
+                        $selectedGroup = $g;
+                        break;
+                    }
                 }
             }
             if ($channel === false) {
                 break;
             }
             $selectedAny = true;
+            if ($selectedGroup === null) {
+                $selectedGroup = $groups[0];
+            }
             $lastSelectedGroup = $selectedGroup;
             $excludeIds[] = (int)$channel['id'];
             $channelFormat = ChannelType::format(isset($channel['type']) ? $channel['type'] : 'openai');
@@ -122,9 +148,11 @@ class Relay
                 $normUsage = Converter::normalizeUsage($usage);
                 $promptTokens = $normUsage['prompt_tokens'];
                 $completionTokens = $normUsage['completion_tokens'];
-                $cost = self::computeCost($apiType, $payload, $price, $promptTokens, $completionTokens) * Group::getUserGroupRatio($userGroup, $lastSelectedGroup);
+                $cachedTokens = isset($normUsage['cached_tokens']) ? $normUsage['cached_tokens'] : 0;
+                $cost = self::computeCost($apiType, $payload, $price, $promptTokens, $completionTokens, $cachedTokens) * Group::getUserGroupRatio($userGroup, $lastSelectedGroup);
                 self::settle($user, $token, $channel, $model, $apiType, $promptTokens, $completionTokens, $cost, $duration, true, null, $rawBody, $estimatedCost);
                 Channel::incrementSuccess((int)$channel['id']);
+                Affinity::pin($user['id'], $model, (int)$channel['id']);
                 if (!empty($result['body'])) {
                     $finalBody = Sensitive::enabled() ? self::maskResponseBody($result['body']) : $result['body'];
                     header('Content-Type: application/json; charset=utf-8');
@@ -133,6 +161,7 @@ class Relay
                 return null;
             }
             Channel::incrementFail((int)$channel['id']);
+            Affinity::clear($user['id'], $model);
             self::maybeAutoDisable((int)$channel['id'], isset($result['http_code']) ? $result['http_code'] : null, isset($result['error']) ? $result['error'] : null);
             $lastAttempt = $result;
             if (!$result['retryable']) {
@@ -238,7 +267,7 @@ class Relay
         return Billing::calculate($price, self::estimateTokens($payload), 0);
     }
 
-    private static function computeCost($apiType, $payload, $price, $promptTokens, $completionTokens)
+    private static function computeCost($apiType, $payload, $price, $promptTokens, $completionTokens, $cachedTokens = 0)
     {
         if ($apiType === 'image') {
             $n = isset($payload['n']) ? max(1, (int)$payload['n']) : 1;
@@ -247,7 +276,7 @@ class Relay
         if ($apiType === 'audio' || $apiType === 'speech') {
             return 0.006;
         }
-        return Billing::calculate($price, $promptTokens, $completionTokens);
+        return Billing::calculate($price, $promptTokens, $completionTokens, $cachedTokens);
     }
 
     private static function forward($channel, $endpoint, $body, &$isStream, $model = '', $requestFormat = 'openai', $contentType = 'application/json', $allowConvert = true)

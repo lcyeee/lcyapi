@@ -49,6 +49,9 @@ if ($isApi) {
     if (preg_match('#^models/([^/]+)$#', $route, $m)) {
         $_GET['model'] = urldecode($m[1]);
         $file = API_PATH . '/models/detail.php';
+    } elseif (preg_match('#^dashboard/billing/(subscription|usage)$#', $route, $m)) {
+        $_GET['billing_action'] = $m[1];
+        $file = API_PATH . '/dashboard/billing.php';
     } else {
         $file = API_PATH . '/' . $route . '.php';
     }
