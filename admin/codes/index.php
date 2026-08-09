@@ -64,6 +64,23 @@ if ($batch !== '') {
     $where = ' WHERE batch = ?';
     $params = [$batch];
 }
+
+/* 导出 CSV（当前批次/全量） */
+if (isset($_GET['export'])) {
+    $rows = DB::fetchAll('SELECT code, quota, status, used_at, used_by, batch, remark FROM redemptions' . $where . ' ORDER BY id ASC', $params);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="codes-' . date('Ymd-His') . '.csv"');
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['兑换码', '额度(USD)', '状态', '使用时间', '使用用户ID', '批次', '备注']);
+    foreach ($rows as $row) {
+        $status = $row['status'] == 1 ? ($row['used_at'] ? '已使用' : '可用') : '停用';
+        fputcsv($out, [$row['code'], (float)$row['quota'], $status, $row['used_at'], $row['used_at'] ? $row['used_by'] : '', $row['batch'], $row['remark']]);
+    }
+    fclose($out);
+    exit;
+}
+
 $total = (int)DB::value('SELECT COUNT(*) FROM redemptions' . $where, $params);
 $pages = max(1, (int)ceil($total / $perPage));
 $page = min($page, $pages);
@@ -95,11 +112,14 @@ $codes = DB::fetchAll('SELECT r.*, u.username AS used_by_name FROM redemptions r
 <div class="card">
     <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <span>兑换码列表（共 <?php echo $total; ?> 个<?php echo $batch !== '' ? '，批次 ' . e($batch) : ''; ?>）</span>
-        <form method="post" data-confirm-title="清理失效兑换码" data-confirm-msg="将删除所有已使用和已停用的兑换码，确定继续？" data-confirm-ok="清理">
+        <div style="display:flex; gap:8px; align-items:center;">
+            <a class="btn btn-sm btn-secondary" href="<?php echo base_url('admin/codes/index.php?export=1' . ($batch !== '' ? '&batch=' . urlencode($batch) : '')); ?>"><?php echo svg_icon('download'); ?>导出 CSV</a>
+            <form method="post" data-confirm-title="清理失效兑换码" data-confirm-msg="将删除所有已使用和已停用的兑换码，确定继续？" data-confirm-ok="清理">
             <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="action" value="cleanup">
             <button type="submit" class="btn btn-sm btn-secondary"><?php echo svg_icon('trash'); ?>清理失效码</button>
-        </form>
+            </form>
+        </div>
     </div>
     <table class="table">
         <thead>

@@ -12,6 +12,22 @@ if ($type !== '') {
     $where = ' WHERE type = ?';
     $params = [$type];
 }
+
+/* 导出 CSV */
+if (isset($_GET['export'])) {
+    $rows = DB::fetchAll('SELECT * FROM error_logs' . $where . ' ORDER BY id DESC', $params);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="errors-' . date('Ymd-His') . '.csv"');
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['ID', '类型', '用户', '渠道', '模型', '消息', '时间']);
+    foreach ($rows as $row) {
+        fputcsv($out, [$row['id'], $row['type'], $row['user_id'], $row['channel_id'], $row['model'], $row['message'], $row['created_at']]);
+    }
+    fclose($out);
+    exit;
+}
+
 $total = (int)DB::value('SELECT COUNT(*) FROM error_logs' . $where, $params);
 $pages = max(1, (int)ceil($total / $perPage));
 $page = min($page, $pages);
@@ -33,6 +49,7 @@ $types = DB::fetchAll('SELECT DISTINCT type FROM error_logs ORDER BY type');
         </div>
         <button type="submit" class="btn"><?php echo svg_icon('search'); ?>筛选</button>
         <a class="btn btn-secondary" href="<?php echo base_url('admin/errors/index.php'); ?>"><?php echo svg_icon('refresh'); ?>重置</a>
+        <a class="btn btn-secondary" href="<?php echo base_url('admin/errors/index.php?export=1' . ($type !== '' ? '&type=' . urlencode($type) : '')); ?>"><?php echo svg_icon('download'); ?>导出 CSV</a>
     </form>
 </div>
 

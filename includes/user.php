@@ -92,9 +92,13 @@ class User
         DB::begin();
         try {
             DB::delete('users', 'id = ?', [(int)$id]);
+            DB::delete('users', 'id = ?', [(int)$id]);
             DB::delete('tokens', 'user_id = ?', [(int)$id]);
             DB::delete('recharge_logs', 'user_id = ?', [(int)$id]);
             DB::delete('checkins', 'user_id = ?', [(int)$id]);
+            DB::delete('user_sessions', 'user_id = ?', [(int)$id]);
+            DB::delete('oauth_bindings', 'user_id = ?', [(int)$id]);
+            DB::delete('user_subscriptions', 'user_id = ?', [(int)$id]);
             /* 解除下级邀请关系，避免悬挂外键引用 */
             DB::query('UPDATE users SET aff_by = NULL WHERE aff_by = ?', [(int)$id]);
             DB::commit();

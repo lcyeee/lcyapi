@@ -50,6 +50,35 @@ if ($to !== '') {
 $whereSql = empty($where) ? '' : ' WHERE ' . implode(' AND ', $where);
 $join = ' FROM logs l LEFT JOIN users u ON u.id = l.user_id LEFT JOIN channels c ON c.id = l.channel_id' . $whereSql;
 
+/* 导出 CSV（当前筛选条件全量） */
+if (isset($_GET['export'])) {
+    $rows = DB::fetchAll('SELECT l.*, u.username, c.name AS channel_name' . $join . ' ORDER BY l.id DESC', $params);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="logs-' . date('Ymd-His') . '.csv"');
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['ID', '用户', '渠道', '模型', '类型', '提示 Tokens', '输出 Tokens', '总 Tokens', '费用(USD)', '耗时(ms)', '状态', '错误', '时间']);
+    foreach ($rows as $row) {
+        fputcsv($out, [
+            $row['id'],
+            $row['username'],
+            $row['channel_name'],
+            $row['model'],
+            $row['type'],
+            (int)$row['prompt_tokens'],
+            (int)$row['completion_tokens'],
+            (int)$row['total_tokens'],
+            (float)$row['cost'],
+            (int)$row['duration'],
+            $row['status'] ? '成功' : '失败',
+            $row['error_msg'],
+            $row['created_at'],
+        ]);
+    }
+    fclose($out);
+    exit;
+}
+
 $total = (int)DB::value('SELECT COUNT(*)' . $join, $params);
 $pages = max(1, (int)ceil($total / $perPage));
 $page = min($page, $pages);
@@ -91,6 +120,7 @@ $models = DB::fetchAll('SELECT DISTINCT model FROM logs ORDER BY model');
         </div>
         <button type="submit" class="btn"><?php echo svg_icon('search'); ?>筛选</button>
         <a class="btn btn-secondary" href="<?php echo base_url('admin/logs/index.php'); ?>"><?php echo svg_icon('refresh'); ?>重置</a>
+        <a class="btn btn-secondary" href="<?php echo base_url('admin/logs/index.php?export=1' . ($status !== null ? '&status=' . $status : '') . ($model !== '' ? '&model=' . urlencode($model) : '') . ($userKw !== '' ? '&user=' . urlencode($userKw) : '') . ($from !== '' ? '&from=' . $from : '') . ($to !== '' ? '&to=' . $to : '')); ?>"><?php echo svg_icon('download'); ?>导出 CSV</a>
     </form>
 </div>
 

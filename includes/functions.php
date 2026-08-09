@@ -360,6 +360,7 @@ function svg_icon($name, $class = 'i')
             'key'      => '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M15 8l3 3M19 4l2 2"/>',
             'crown'    => '<path d="M3 7l4 4 5-6 5 6 4-4-2 12H5L3 7z"/><path d="M6 17h12"/>',
             'server'   => '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+            'download' => '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
         ];
     }
     $inner = isset($icons[$name]) ? $icons[$name] : '';
