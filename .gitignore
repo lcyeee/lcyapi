@@ -9,6 +9,9 @@ config.php
 # AI 协作文档（不上传 GitHub）
 AGENTS.md
 
+# 用户笔记/大纲（本地保留，不上传 GitHub）
+lcyapi大纲.md
+
 # 参考项目源码（仅本地参考，绝不上传）
 new-api/
 *.zip

@@ -16,7 +16,7 @@ class Channel
 
     public static function create($data)
     {
-        $fields = ['name', 'type', 'base_url', 'api_key', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark'];
+        $fields = ['name', 'type', 'base_url', 'api_key', 'api_keys', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark', 'tags'];
         $insert = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -49,7 +49,7 @@ class Channel
 
     public static function update($id, $data)
     {
-        $fields = ['name', 'type', 'base_url', 'api_key', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark', 'last_use_at'];
+        $fields = ['name', 'type', 'base_url', 'api_key', 'api_keys', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark', 'tags', 'last_use_at'];
         $update = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -255,6 +255,13 @@ public static function test($id)
             return $path;
         }
         $path = ltrim($path, '/');
+        $format = ChannelType::format(isset($channel['type']) ? $channel['type'] : 'openai');
+        if ($format === 'gemini') {
+            if (preg_match('#/v\d+(beta)?/?$#i', $base)) {
+                return $base . '/' . $path;
+            }
+            return $base . '/v1beta/' . $path;
+        }
         if (preg_match('#/v\d+/?$#i', $base)) {
             return $base . '/' . $path;
         }
@@ -266,8 +273,75 @@ public static function test($id)
         return self::httpPost($channel, self::buildUrl($channel, 'chat/completions'), $body, $timeout);
     }
 
+    /**
+     * SSRF 防护：仅允许 http/https；内网/保留地址默认拦截（ssrf_allow_private=1 可放行）
+     * 返回 ['ok'=>true] 或 ['ok'=>false,'msg']
+     */
+    public static function checkSsrf($url)
+    {
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            return ['ok' => false, 'msg' => '仅支持 http/https 协议'];
+        }
+        if (setting('ssrf_allow_private', '0') === '1') {
+            return ['ok' => true];
+        }
+        $host = (string)parse_url($url, PHP_URL_HOST);
+        if ($host === '') {
+            return ['ok' => false, 'msg' => 'URL 缺少主机名'];
+        }
+        $host = rtrim($host, '.');
+        $ips = [];
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            $ips[] = $host;
+        } else {
+            $resolved = @gethostbynamel($host);
+            if (is_array($resolved)) {
+                foreach ($resolved as $ip) {
+                    $ips[] = $ip;
+                }
+            }
+        }
+        if (empty($ips)) {
+            return ['ok' => false, 'msg' => '无法解析主机地址（DNS 解析失败）'];
+        }
+        foreach ($ips as $ip) {
+            if (self::isPrivateIp($ip)) {
+                return ['ok' => false, 'msg' => '禁止访问内网/保留地址（' . $ip . '），如需本地渠道请在设置中开启「允许内网地址」'];
+            }
+        }
+        return ['ok' => true];
+    }
+
+    private static function isPrivateIp($ip)
+    {
+        if (strpos($ip, ':') !== false) {
+            /* IPv6：简化判断本地/链路本地 */
+            $lower = strtolower($ip);
+            if (strpos($lower, '::1') === 0 || strpos($lower, 'fe80:') === 0 || strpos($lower, 'fc') === 0 || strpos($lower, 'fd') === 0 || strpos($lower, '::ffff:') === 0) {
+                return true;
+            }
+            return false;
+        }
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return false;
+        }
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+            return true;
+        }
+        /* 回环 127.x、链路本地 169.254.x、云元数据等 */
+        if (strpos($ip, '127.') === 0 || strpos($ip, '169.254.') === 0 || strpos($ip, '0.') === 0 || strpos($ip, '255.255.255.255') === 0) {
+            return true;
+        }
+        return false;
+    }
+
     public static function httpPost($channel, $url, $body, $timeout = 120)
     {
+        $ssrf = self::checkSsrf($url);
+        if (!$ssrf['ok']) {
+            return ['ok' => false, 'http_code' => 0, 'body' => '', 'error' => 'SSRF: ' . $ssrf['msg']];
+        }
         $timeout = max(5, (int)$timeout);
         $headers = self::headersFor($channel);
         $ch = curl_init();
@@ -292,6 +366,10 @@ public static function test($id)
 
     public static function httpGet($channel, $url, $timeout = 30)
     {
+        $ssrf = self::checkSsrf($url);
+        if (!$ssrf['ok']) {
+            return ['ok' => false, 'http_code' => 0, 'body' => '', 'error' => 'SSRF: ' . $ssrf['msg']];
+        }
         $timeout = max(5, (int)$timeout);
         $headers = self::headersFor($channel);
         $ch = curl_init();
@@ -343,18 +421,63 @@ public static function test($id)
         return ['ok' => true, 'models' => $ids];
     }
 
-    private static function headersFor($channel)
+    /**
+     * 渠道密钥列表：优先 api_keys（JSON 数组，多 Key），否则回退 api_key
+     */
+    public static function apiKeys($channel)
+    {
+        $raw = isset($channel['api_keys']) ? trim((string)$channel['api_keys']) : '';
+        if ($raw !== '') {
+            $list = json_decode($raw, true);
+            if (is_array($list)) {
+                $keys = array_values(array_filter(array_map('trim', $list), function ($k) {
+                    return $k !== '';
+                }));
+                if (!empty($keys)) {
+                    return $keys;
+                }
+            }
+        }
+        $single = isset($channel['api_key']) ? trim((string)$channel['api_key']) : '';
+        return $single !== '' ? [$single] : [];
+    }
+
+    /**
+     * 多 Key 随机选取一个用于本次请求
+     */
+    public static function selectKey($channel)
+    {
+        $keys = self::apiKeys($channel);
+        if (empty($keys)) {
+            return '';
+        }
+        return $keys[random_int(0, count($keys) - 1)];
+    }
+
+    public static function headersFor($channel, $apiKey = null)
     {
         $type = isset($channel['type']) ? $channel['type'] : 'openai';
+        $cfg = ChannelType::get($type);
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json, text/event-stream',
             'User-Agent: lcyapi/1.0',
         ];
-        if ($type === 'azure') {
-            $headers[] = 'api-key: ' . $channel['api_key'];
-        } else {
-            $headers[] = 'Authorization: Bearer ' . $channel['api_key'];
+        if ($apiKey === null) {
+            $apiKey = self::selectKey($channel);
+        }
+        $auth = $cfg['auth'];
+        if ($auth === 'api-key') {
+            $headers[] = 'api-key: ' . $apiKey;
+        } elseif ($auth === 'x-api-key') {
+            $headers[] = 'x-api-key: ' . $apiKey;
+        } elseif ($auth === 'x-goog-api-key') {
+            $headers[] = 'x-goog-api-key: ' . $apiKey;
+        } elseif ($auth === 'bearer' && $apiKey !== '') {
+            $headers[] = 'Authorization: Bearer ' . $apiKey;
+        }
+        foreach ((array)($cfg['headers'] ?? []) as $extra) {
+            $headers[] = $extra;
         }
         foreach (self::extraHeaders($channel) as $extra) {
             $headers[] = $extra;

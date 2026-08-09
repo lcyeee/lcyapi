@@ -49,9 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $data = [
         'name' => trim($_POST['name'] ?? ''),
-        'type' => in_array(($_POST['type'] ?? 'openai'), ['openai', 'azure', 'custom'], true) ? $_POST['type'] : 'openai',
+        'type' => ChannelType::exists(($_POST['type'] ?? 'openai')) ? $_POST['type'] : 'openai',
         'base_url' => rtrim(trim($_POST['base_url'] ?? ''), '/'),
         'api_key' => trim($_POST['api_key'] ?? ''),
+        'api_keys' => trim($_POST['api_keys'] ?? ''),
+        'tags' => mb_substr(trim($_POST['tags'] ?? ''), 0, 255),
         'models' => trim($_POST['models'] ?? ''),
         'group' => mb_substr(trim($_POST['group'] ?? ''), 0, 500),
         'model_mapping' => trim($_POST['model_mapping'] ?? ''),
@@ -61,6 +63,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'status' => empty($_POST['status']) ? 0 : 1,
         'remark' => mb_substr(trim($_POST['remark'] ?? ''), 0, 255),
     ];
+    if ($data['api_keys'] !== '') {
+        $keysList = array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', $data['api_keys']) ?: []), function ($k) {
+            return $k !== '';
+        }));
+        $data['api_keys'] = json_encode($keysList, JSON_UNESCAPED_UNICODE);
+    }
     if ($data['name'] === '') {
         session_flash('flash_error', '渠道名称不能为空');
         redirect(base_url('admin/channels/edit.php' . ($id ? '?id=' . $id : '')));
@@ -96,6 +104,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $name = $channel ? $channel['name'] : '';
 $type = $channel ? $channel['type'] : 'openai';
 $baseUrl = $channel ? $channel['base_url'] : '';
+$apiKeysText = '';
+if ($channel && !empty($channel['api_keys'])) {
+    $keysArr = json_decode((string)$channel['api_keys'], true);
+    if (is_array($keysArr)) {
+        $apiKeysText = implode("\n", $keysArr);
+    }
+}
+$tags = $channel ? $channel['tags'] : '';
 $models = $channel ? $channel['models'] : '';
 $group = $channel ? $channel['group'] : '';
 $modelMapping = $channel ? $channel['model_mapping'] : '';
@@ -119,9 +135,9 @@ $remark = $channel ? $channel['remark'] : '';
         <div class="form-group">
             <label>渠道类型</label>
             <select name="type" class="form-control">
-                <option value="openai" <?php echo $type === 'openai' ? 'selected' : ''; ?>>OpenAI</option>
-                <option value="azure" <?php echo $type === 'azure' ? 'selected' : ''; ?>>Azure</option>
-                <option value="custom" <?php echo $type === 'custom' ? 'selected' : ''; ?>>自定义（OpenAI 兼容）</option>
+                <?php foreach (ChannelType::options() as $tKey => $tName): ?>
+                    <option value="<?php echo $tKey; ?>" <?php echo $type === $tKey ? 'selected' : ''; ?>><?php echo $tName; ?></option>
+                <?php endforeach; ?>
             </select>
         </div>
         <div class="form-group">
@@ -133,6 +149,16 @@ $remark = $channel ? $channel['remark'] : '';
             <label>API Key</label>
             <input type="text" name="api_key" class="form-control" value="<?php echo $channel ? '******' : ''; ?>" placeholder="sk-xxx">
             <div class="form-hint"><?php echo $channel ? '留空或保持 ****** 表示不修改' : '渠道的上游密钥'; ?></div>
+        </div>
+        <div class="form-group">
+            <label>多 Key（每行一个，转发时随机选取，可选）</label>
+            <textarea name="api_keys" class="form-control" rows="3" placeholder="sk-key1&#10;sk-key2"><?php echo e($apiKeysText); ?></textarea>
+            <div class="form-hint">填入后按多 Key 随机轮换使用；留空则使用上方单个 API Key</div>
+        </div>
+        <div class="form-group">
+            <label>标签（逗号分隔，可选）</label>
+            <input type="text" name="tags" class="form-control" value="<?php echo e($tags); ?>" placeholder="主力,备用">
+            <div class="form-hint">用于渠道列表筛选与管理</div>
         </div>
         <div class="form-group">
             <label>支持的模型（点选下方模型或手动输入，支持粘贴逗号分隔列表与通配符，留空=全部）</label>
@@ -220,7 +246,7 @@ $remark = $channel ? $channel['remark'] : '';
     var initialModels = <?php echo json_encode(array_values(array_filter(array_map('trim', explode(',', $models)))) ?: [], JSON_UNESCAPED_UNICODE); ?>;
     input.value = initialModels.join(',');
 
-    /* 按模型名规则分组（参照 new-api 的模型类型划分） */
+    /* 按模型名规则分组（参照 lcyapi 的模型类型划分） */
     var GROUPS = [
         { name: '对话', test: function (m) { return /^(gpt-|o\d|chatgpt|claude|gemini|deepseek|qwen|llama|glm-|moonshot|mistral|phi-|yi-|command|jina|grok|doubao|ep-|kimi|minimax)/i.test(m); } },
         { name: '嵌入', test: function (m) { return /embed/i.test(m); } },
@@ -335,7 +361,7 @@ $remark = $channel ? $channel['remark'] : '';
         renderSelectedChips();
     }
 
-    /* 粘贴时自动拆分逗号/中文逗号/换行/分号/空格（参照 new-api 的批量添加） */
+    /* 粘贴时自动拆分逗号/中文逗号/换行/分号/空格（参照 lcyapi 的批量添加） */
     input.addEventListener('paste', function (e) {
         var text = (e.clipboardData || window.clipboardData).getData('text');
         if (!text || !/[,，;；\n\r\s]/.test(text)) { return; }

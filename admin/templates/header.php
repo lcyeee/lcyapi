@@ -44,6 +44,8 @@ function admin_nav($needle, $requestPath)
             <a class="<?php echo admin_nav('/admin/login-logs/', $requestPath); ?>" href="<?php echo base_url('admin/login-logs/index.php'); ?>"><?php echo svg_icon('check'); ?>登录日志</a>
             <div class="group-title">运营</div>
             <a class="<?php echo admin_nav('/admin/codes/', $requestPath); ?>" href="<?php echo base_url('admin/codes/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码</a>
+            <a class="<?php echo admin_nav('/admin/subscriptions/', $requestPath); ?>" href="<?php echo base_url('admin/subscriptions/index.php'); ?>"><?php echo svg_icon('crown'); ?>订阅套餐</a>
+            <a class="<?php echo admin_nav('/admin/system/', $requestPath); ?>" href="<?php echo base_url('admin/system/index.php'); ?>"><?php echo svg_icon('server'); ?>系统任务/实例</a>
             <a class="<?php echo admin_nav('/admin/settings/', $requestPath); ?>" href="<?php echo base_url('admin/settings/index.php'); ?>"><?php echo svg_icon('settings'); ?>系统设置</a>
         </nav>
     </aside>

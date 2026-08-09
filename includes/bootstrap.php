@@ -34,6 +34,8 @@ spl_autoload_register(function ($class) {
         'RateLimit' => 'ratelimit', 'Validator' => 'validator', 'Response' => 'response',
         'Admin' => 'admin', 'Relay' => 'relay', 'Model' => 'model', 'Redemption' => 'redemption',
         'Recharge' => 'recharge', 'Dashboard' => 'dashboard', 'Group' => 'group',
+        'ChannelType' => 'channel_types', 'Converter' => 'converter', 'OAuth' => 'oauth', 'TOTP' => 'totp',
+        'Mailer' => 'mailer', 'PayOrder' => 'pay_order', 'Sensitive' => 'sensitive',
     ];
     if (isset($map[$class])) {
         $file = INCLUDE_PATH . '/' . $map[$class] . '.php';

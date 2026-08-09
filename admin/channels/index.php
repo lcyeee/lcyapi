@@ -71,16 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'test') {
         $result = Channel::test($id);
         if (!empty($result['ok'])) {
-            $msg = "测试成功：{$result['model']}，耗时 {$result['elapsed']}ms";
-            if (!empty($result['usage'])) {
-                $msg .= '，usage: ' . json_encode($result['usage'], JSON_UNESCAPED_UNICODE);
-            }
             Channel::incrementSuccess($id);
-            session_flash('flash_success', $msg);
-        } else {
-            $detail = isset($result['detail']) && $result['detail'] !== '' ? '；' . $result['detail'] : '';
-            session_flash('flash_error', '测试失败：' . $result['message'] . $detail);
         }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        exit;
     }
     redirect(base_url('admin/channels/index.php'));
 }
@@ -176,11 +171,7 @@ $groupOptions = Group::allGroups();
             </td>
             <td><?php echo e($channel['last_use_at'] ?: '-'); ?></td>
             <td style="white-space:nowrap;">
-                <form method="post" style="display:inline-block; margin-right:4px;">
-                    <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
-                    <input type="hidden" name="id" value="<?php echo $channel['id']; ?>">
-                    <button type="submit" name="action" value="test" class="btn btn-sm btn-secondary">测试</button>
-                </form>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="testChannel(<?php echo (int)$channel['id']; ?>, '<?php echo e($channel['name']); ?>')">测试</button>
                 <a class="btn btn-sm" href="<?php echo base_url('admin/channels/edit.php?id=' . $channel['id']); ?>">编辑</a>
                 <form method="post" style="display:inline-block; margin-right:4px;">
                     <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
@@ -206,6 +197,37 @@ $groupOptions = Group::allGroups();
 <script>
 function toggleAll(box) {
     document.querySelectorAll('.ch-row').forEach(function (c) { c.checked = box.checked; });
+}
+function testChannel(id, name) {
+    var modal = LcyModal.open({
+        title: '渠道测试：' + name,
+        message: '<div class="text-muted">正在发起测试请求…</div>',
+        html: true,
+        confirmText: '关闭',
+        closable: false
+    });
+    var body = new FormData();
+    body.append('_csrf', '<?php echo csrf_token(); ?>');
+    body.append('action', 'test');
+    body.append('id', id);
+    fetch('<?php echo base_url('admin/channels/index.php'); ?>', {
+        method: 'POST',
+        body: body
+    }).then(function (r) { return r.json(); }).then(function (res) {
+        var html;
+        if (res.ok) {
+            var usage = res.usage ? '<br>usage: <code>' + escapeHtml(JSON.stringify(res.usage)) + '</code>' : '';
+            html = '<div class="alert alert-success">测试成功：' + escapeHtml(res.model) + '，耗时 ' + (res.elapsed || 0) + 'ms' + usage + '</div>';
+        } else {
+            html = '<div class="alert alert-danger">测试失败：' + escapeHtml(res.message || '未知错误') + (res.detail ? '<br><code style="word-break:break-all;">' + escapeHtml(res.detail) + '</code>' : '') + '</div>';
+        }
+        LcyModal.refresh({ message: html, html: true });
+    }).catch(function () {
+        LcyModal.refresh({ message: '<div class="alert alert-danger">网络请求失败</div>', html: true });
+    });
+}
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function submitBatch(action) {
     var ids = [];

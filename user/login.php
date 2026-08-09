@@ -6,12 +6,17 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_verify()) {
         $error = '页面已过期，请重试';
+    } elseif (!turnstile_verify()) {
+        $error = '人机验证未通过，请重试';
     } else {
         $result = Auth::login(
             isset($_POST['username']) ? trim($_POST['username']) : '',
             isset($_POST['password']) ? $_POST['password'] : ''
         );
         if ($result['ok']) {
+            if (!empty($result['twofa'])) {
+                redirect(base_url('user/twofa.php'));
+            }
             redirect(base_url('user/index.php'));
         }
         $error = $result['reason'];
@@ -47,14 +52,27 @@ $pageTitle = '登录';
                 <label>密码</label>
                 <input type="password" name="password" class="form-control" required>
             </div>
+            <?php echo turnstile_widget(); ?>
             <button type="submit" class="btn" style="width:100%;">登 录</button>
             <div class="extra">
-                <span></span>
+                <a href="<?php echo base_url('user/forgot.php'); ?>">忘记密码</a>
                 <?php if (setting('register_enabled', '1')) : ?>
                     <a href="<?php echo base_url('user/register.php'); ?>">注册账号</a>
                 <?php endif; ?>
             </div>
         </form>
+        <?php
+        $oauthButtons = [];
+        if (OAuth::enabled('github')) {
+            $oauthButtons[] = '<a class="btn btn-outline" style="width:100%; margin-top:10px;" href="' . base_url('user/oauth.php?provider=github') . '">' . svg_icon('globe') . 'GitHub 登录</a>';
+        }
+        if (OAuth::enabled('telegram')) {
+            $oauthButtons[] = '<a class="btn btn-outline" style="width:100%; margin-top:10px;" href="' . base_url('user/oauth.php?provider=telegram') . '">' . svg_icon('send') . 'Telegram 登录</a>';
+        }
+        if (!empty($oauthButtons)) : ?>
+            <div style="text-align:center; color:var(--text-2); font-size:12px; margin:16px 0 4px;">———— 其他方式登录 ————</div>
+            <?php echo implode('', $oauthButtons); ?>
+        <?php endif; ?>
     </div>
 </div>
 </body>

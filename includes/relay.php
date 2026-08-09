@@ -3,7 +3,15 @@ class Relay
 {
     private static $requestId = '';
 
-    public static function handle($endpoint, $apiType)
+    /**
+     * 统一转发入口
+     * @param string $endpoint      上游端点路径（如 chat/completions、models/{model}:generateContent）
+     * @param string $apiType       计费/日志类型：chat|completion|embedding|image|audio|speech|claude|responses|rerank|moderation|gemini
+     * @param string $requestFormat 客户端请求格式：openai|claude|gemini
+     * @param string|null $urlModel 模型在 URL 里的请求（Gemini 专用），null 表示模型在 body
+     * @param string $contentType   请求 Content-Type（multipart 直通时需保留原始头）
+     */
+    public static function handle($endpoint, $apiType, $requestFormat = 'openai', $urlModel = null, $contentType = 'application/json')
     {
         self::$requestId = http_request_id();
         header('X-Lcyapi-Request-Id: ' . self::$requestId);
@@ -25,12 +33,30 @@ class Relay
         if ($rawBody === false || $rawBody === '') {
             $rawBody = '{}';
         }
-        $payload = json_decode($rawBody, true);
-        if (!is_array($payload)) {
-            return self::openaiError('请求体不是合法的 JSON', 'invalid_request_error', 'invalid_json', 400);
+        /* 请求体大小限制 */
+        $maxBodyMb = (int)setting('max_request_mb', '0');
+        if ($maxBodyMb > 0 && strlen($rawBody) > $maxBodyMb * 1048576) {
+            return self::openaiError('请求体过大，最大允许 ' . $maxBodyMb . ' MB', 'invalid_request_error', 'request_too_large', 413);
+        }
+        $isMultipart = strpos($contentType, 'multipart/form-data') !== false;
+        $payload = [];
+        if (!$isMultipart) {
+            $payload = json_decode($rawBody, true);
+            if (!is_array($payload)) {
+                return self::openaiError('请求体不是合法的 JSON', 'invalid_request_error', 'invalid_json', 400);
+            }
+            /* 敏感词过滤：请求内容命中直接拒绝 */
+            $hits = Sensitive::check(self::extractText($payload));
+            if (!empty($hits)) {
+                return self::openaiError('请求内容包含敏感词：' . implode('、', array_slice($hits, 0, 5)), 'invalid_request_error', 'sensitive_content', 400);
+            }
         }
 
-        $model = isset($payload['model']) ? (string)$payload['model'] : '';
+        if ($urlModel !== null) {
+            $model = (string)$urlModel;
+        } else {
+            $model = isset($payload['model']) ? (string)$payload['model'] : '';
+        }
         if ($model === '') {
             return self::openaiError('请提供 model 参数', 'invalid_request_error', 'model_not_found', 404);
         }
@@ -59,7 +85,8 @@ class Relay
             }
         }
 
-        $isStream = !empty($payload['stream']) && in_array($apiType, ['chat', 'completion'], true);
+        $isStream = !empty($payload['stream']) && in_array($apiType, ['chat', 'completion', 'claude', 'responses', 'gemini'], true);
+        $allowConvert = in_array($apiType, ['chat', 'completion', 'claude', 'gemini'], true);
         $maxAttempts = 1 + max(0, (int)setting('retry_count', config('relay.retry_count', 0)));
         $excludeIds = [];
         $startMs = microtime(true);
@@ -84,18 +111,22 @@ class Relay
             }
             $lastSelectedGroup = $selectedGroup;
             $excludeIds[] = (int)$channel['id'];
-            $result = self::forward($channel, $endpoint, $rawBody, $isStream, $model);
+            $channelFormat = ChannelType::format(isset($channel['type']) ? $channel['type'] : 'openai');
+            $upstreamEndpoint = self::upstreamEndpoint($endpoint, $apiType, $requestFormat, $channelFormat, $isStream, $model);
+            $result = self::forward($channel, $upstreamEndpoint, $rawBody, $isStream, $model, $requestFormat, $contentType, $allowConvert);
             if ($result['ok']) {
                 $duration = (int)round((microtime(true) - $startMs) * 1000);
                 $usage = isset($result['usage']) ? $result['usage'] : null;
-                $promptTokens = isset($usage['prompt_tokens']) ? (int)$usage['prompt_tokens'] : 0;
-                $completionTokens = isset($usage['completion_tokens']) ? (int)$usage['completion_tokens'] : 0;
+                $normUsage = Converter::normalizeUsage($usage);
+                $promptTokens = $normUsage['prompt_tokens'];
+                $completionTokens = $normUsage['completion_tokens'];
                 $cost = self::computeCost($apiType, $payload, $price, $promptTokens, $completionTokens) * Group::getUserGroupRatio($userGroup, $lastSelectedGroup);
                 self::settle($user, $token, $channel, $model, $apiType, $promptTokens, $completionTokens, $cost, $duration, true, null, $rawBody, $estimatedCost);
                 Channel::incrementSuccess((int)$channel['id']);
                 if (!empty($result['body'])) {
+                    $finalBody = Sensitive::enabled() ? self::maskResponseBody($result['body']) : $result['body'];
                     header('Content-Type: application/json; charset=utf-8');
-                    echo $result['body'];
+                    echo $finalBody;
                 }
                 return null;
             }
@@ -170,6 +201,15 @@ class Relay
         if (isset($payload['input'])) {
             $text .= is_array($payload['input']) ? json_encode($payload['input']) : $payload['input'];
         }
+        if (isset($payload['contents'])) {
+            $text .= json_encode($payload['contents']);
+        }
+        if (isset($payload['documents'])) {
+            $text .= json_encode($payload['documents']);
+        }
+        if (isset($payload['query'])) {
+            $text .= json_encode($payload['query']);
+        }
         return Billing::estimateTokens($text);
     }
 
@@ -181,6 +221,12 @@ class Relay
         }
         if ($apiType === 'audio' || $apiType === 'speech') {
             return 0.006;
+        }
+        if ($apiType === 'rerank') {
+            return Billing::calculate($price, self::estimateTokens($payload), 0);
+        }
+        if ($apiType === 'moderation') {
+            return Billing::calculate($price, self::estimateTokens($payload), 0);
         }
         return Billing::calculate($price, self::estimateTokens($payload), 0);
     }
@@ -197,34 +243,51 @@ class Relay
         return Billing::calculate($price, $promptTokens, $completionTokens);
     }
 
-private static function forward($channel, $endpoint, $body, &$isStream, $model = '')
+    private static function forward($channel, $endpoint, $body, &$isStream, $model = '', $requestFormat = 'openai', $contentType = 'application/json', $allowConvert = true)
     {
-        $url = Channel::buildUrl($channel, $endpoint);
-        $timeout = max(10, (int)config('relay.timeout', 120));
-        $headers = [
-            'Content-Type: application/json',
-            'Accept: application/json, text/event-stream',
-            'User-Agent: lcyapi/1.0',
-        ];
-        $apiKey = isset($channel['api_key']) ? $channel['api_key'] : '';
-        if (isset($channel['type']) && $channel['type'] === 'azure') {
-            $headers[] = 'api-key: ' . $apiKey;
-        } else {
-            $headers[] = 'Authorization: Bearer ' . $apiKey;
-        }
-        foreach (Channel::extraHeaders($channel) as $extra) {
-            $headers[] = $extra;
-        }
-        if ($model !== '') {
+        $channelFormat = ChannelType::format(isset($channel['type']) ? $channel['type'] : 'openai');
+        $isJson = strpos($contentType, 'multipart/form-data') === false;
+
+        /* 模型映射：body 里的 model + URL 路径里的 model（Gemini）一起替换 */
+        $mapped = '';
+        if ($model !== '' && $isJson) {
             $mapped = Channel::mapModel($channel, $model);
             if ($mapped !== $model) {
                 $payload = json_decode($body, true);
                 if (is_array($payload)) {
                     $payload['model'] = $mapped;
-                    $body = json_encode($payload);
+                    $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 }
             }
         }
+
+        /* 请求格式转换：openai⇄claude⇄gemini（仅 chat 类接口） */
+        if ($isJson && $allowConvert && $requestFormat !== $channelFormat) {
+            $payload = json_decode($body, true);
+            if (is_array($payload)) {
+                $converted = self::convertRequest($requestFormat, $channelFormat, $payload);
+                if ($converted !== null) {
+                    $body = json_encode($converted, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                }
+            }
+        }
+
+        $url = Channel::buildUrl($channel, $endpoint);
+        if ($mapped !== '' && $mapped !== $model && strpos($url, $model) !== false) {
+            $url = str_replace($model, $mapped, $url);
+        }
+        $timeout = max(10, (int)config('relay.timeout', 120));
+
+        $headers = Channel::headersFor($channel);
+        if (!$isJson) {
+            foreach ($headers as $i => $h) {
+                if (stripos($h, 'Content-Type:') === 0) {
+                    unset($headers[$i]);
+                }
+            }
+            $headers[] = 'Content-Type: ' . $contentType;
+        }
+
         $ch = curl_init();
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
@@ -232,11 +295,11 @@ private static function forward($channel, $endpoint, $body, &$isStream, $model =
             CURLOPT_POSTFIELDS => $body,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT => $timeout,
-            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_HTTPHEADER => array_values($headers),
         ]);
 
         if ($isStream) {
-            return self::forwardStream($ch);
+            return self::forwardStream($ch, $channelFormat, $requestFormat, $model, $allowConvert);
         }
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -250,14 +313,21 @@ private static function forward($channel, $endpoint, $body, &$isStream, $model =
             return ['ok' => false, 'retryable' => true, 'error' => $curlError, 'http_code' => 0, 'body' => ''];
         }
         if ($httpCode >= 200 && $httpCode < 300) {
-            $data = json_decode($response, true);
+            $finalBody = $response;
+            if ($isJson && $allowConvert && $requestFormat !== $channelFormat) {
+                $finalBody = self::convertResponse($channelFormat, $requestFormat, $response);
+            }
+            $data = json_decode($finalBody, true);
             $usage = is_array($data) && isset($data['usage']) ? $data['usage'] : null;
-            return ['ok' => true, 'http_code' => $httpCode, 'body' => $response, 'usage' => $usage];
+            return ['ok' => true, 'http_code' => $httpCode, 'body' => $finalBody, 'usage' => $usage];
+        }
+        if ($isJson && $allowConvert && $requestFormat !== $channelFormat) {
+            $response = self::convertResponse($channelFormat, $requestFormat, $response);
         }
         return ['ok' => false, 'retryable' => true, 'http_code' => $httpCode, 'body' => $response, 'error' => 'HTTP ' . $httpCode];
     }
 
-    private static function forwardStream($ch)
+    private static function forwardStream($ch, $channelFormat, $requestFormat, $model, $allowConvert = true)
     {
         while (ob_get_level() > 0) {
             ob_end_clean();
@@ -266,11 +336,15 @@ private static function forward($channel, $endpoint, $body, &$isStream, $model =
         header('Cache-Control: no-cache');
         header('X-Accel-Buffering: no');
 
+        $conv = null;
+        if ($allowConvert && $requestFormat !== $channelFormat) {
+            $conv = self::streamConverter($channelFormat, $requestFormat, $model);
+        }
+
         $failed = false;
         $buffer = '';
-        $usage = null;
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
-        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $data) use (&$failed, &$buffer) {
+        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $data) use (&$failed, &$buffer, $conv) {
             static $checked = false;
             if (!$checked) {
                 $checked = true;
@@ -280,14 +354,26 @@ private static function forward($channel, $endpoint, $body, &$isStream, $model =
                 }
             }
             if ($failed) {
+                if (strlen($buffer) < 4194304) {
+                    $buffer .= $data;
+                }
                 return strlen($data);
             }
             if (strlen($buffer) < 4194304) {
                 $buffer .= $data;
             }
-            echo $data;
-            @ob_flush();
-            flush();
+            if ($conv !== null) {
+                $out = $conv['transform']($data);
+                if ($out !== '') {
+                    echo Sensitive::enabled() ? self::maskStream($out) : $out;
+                    @ob_flush();
+                    flush();
+                }
+            } else {
+                echo Sensitive::enabled() ? self::maskStream($data) : $data;
+                @ob_flush();
+                flush();
+            }
             return strlen($data);
         });
         curl_exec($ch);
@@ -298,22 +384,81 @@ private static function forward($channel, $endpoint, $body, &$isStream, $model =
         if ($failed) {
             return ['ok' => false, 'retryable' => true, 'error' => '上游返回 HTTP ' . $httpCode, 'http_code' => $httpCode, 'body' => $buffer, 'streamed' => false];
         }
-        return ['ok' => true, 'http_code' => $httpCode, 'usage' => self::extractUsage($buffer), 'streamed' => true];
-    }
-
-    private static function extractUsage($buffer)
-    {
-        $usage = null;
-        $chunks = explode("\n\n", $buffer);
-        foreach ($chunks as $chunk) {
-            if (preg_match('/^data: (.+)$/m', $chunk, $m)) {
-                $json = json_decode($m[1], true);
-                if (is_array($json) && isset($json['usage'])) {
-                    $usage = $json['usage'];
-                }
+        if ($conv !== null) {
+            $final = $conv['finish']();
+            if ($final !== '') {
+                echo $final;
+                @ob_flush();
+                flush();
             }
         }
-        return $usage;
+        return ['ok' => true, 'http_code' => $httpCode, 'usage' => Converter::extractStreamUsage($buffer), 'streamed' => true];
+    }
+
+    /**
+     * 按渠道格式重映射上游端点：claude/gemini 渠道与 openai 端点互转
+     */
+    private static function upstreamEndpoint($endpoint, $apiType, $requestFormat, $channelFormat, $isStream, $model)
+    {
+        if ($requestFormat === $channelFormat || !in_array($apiType, ['chat', 'completion', 'claude', 'gemini'], true)) {
+            return $endpoint;
+        }
+        if ($requestFormat === 'claude' && $channelFormat === 'openai' && $endpoint === 'messages') {
+            return 'chat/completions';
+        }
+        if ($requestFormat === 'openai' && $channelFormat === 'claude' && $endpoint === 'chat/completions') {
+            return 'messages';
+        }
+        if ($requestFormat === 'openai' && $channelFormat === 'gemini' && $endpoint === 'chat/completions') {
+            $action = $isStream ? 'streamGenerateContent' : 'generateContent';
+            return 'models/' . $model . ':' . $action;
+        }
+        return $endpoint;
+    }
+
+    private static function convertRequest($from, $to, $payload)
+    {
+        if ($from === 'openai' && $to === 'claude') {
+            return Converter::openaiToClaude($payload);
+        }
+        if ($from === 'claude' && $to === 'openai') {
+            return Converter::claudeToOpenAI($payload);
+        }
+        if ($from === 'openai' && $to === 'gemini') {
+            return Converter::openaiToGemini($payload);
+        }
+        return null;
+    }
+
+    private static function convertResponse($from, $to, $body)
+    {
+        if ($from === 'claude' && $to === 'openai') {
+            return Converter::claudeResponseToOpenAI($body);
+        }
+        if ($from === 'gemini' && $to === 'openai') {
+            return Converter::geminiResponseToOpenAI($body);
+        }
+        if ($from === 'openai' && $to === 'claude') {
+            return Converter::openaiResponseToClaude($body);
+        }
+        return $body;
+    }
+
+    private static function streamConverter($from, $to, $model)
+    {
+        if ($from === 'claude' && $to === 'openai') {
+            return Converter::makeClaudeStreamToOpenAI($model);
+        }
+        if ($from === 'openai' && $to === 'claude') {
+            return Converter::makeOpenAIStreamToClaude($model);
+        }
+        if ($from === 'gemini' && $to === 'openai') {
+            return Converter::makeGeminiStreamToOpenAI($model);
+        }
+        if ($from === 'openai' && $to === 'gemini') {
+            return Converter::makeOpenAIStreamToGemini($model);
+        }
+        return null;
     }
 
     private static function maybeAutoDisable($channelId)
@@ -376,5 +521,125 @@ private static function forward($channel, $endpoint, $body, &$isStream, $model =
             DB::rollback();
             write_log('settle error: ' . $ex->getMessage());
         }
+    }
+
+    /* ==================== 敏感词过滤辅助 ==================== */
+
+    /**
+     * 从请求 payload 提取用于敏感词检测的文本
+     */
+    private static function extractText($payload)
+    {
+        $text = '';
+        if (isset($payload['messages']) && is_array($payload['messages'])) {
+            foreach ($payload['messages'] as $msg) {
+                if (!is_array($msg)) {
+                    continue;
+                }
+                if (isset($msg['content'])) {
+                    $text .= self::flattenContent($msg['content']) . "\n";
+                }
+                if (isset($msg['tool_calls']) && is_array($msg['tool_calls'])) {
+                    foreach ($msg['tool_calls'] as $tc) {
+                        if (is_array($tc) && isset($tc['function']['arguments'])) {
+                            $text .= $tc['function']['arguments'] . "\n";
+                        }
+                    }
+                }
+            }
+        }
+        if (isset($payload['prompt'])) {
+            $text .= (is_string($payload['prompt']) ? $payload['prompt'] : json_encode($payload['prompt'])) . "\n";
+        }
+        if (isset($payload['input'])) {
+            $text .= (is_string($payload['input']) ? $payload['input'] : json_encode($payload['input'])) . "\n";
+        }
+        if (isset($payload['contents'])) {
+            $text .= json_encode($payload['contents']) . "\n";
+        }
+        if (isset($payload['documents'])) {
+            $text .= json_encode($payload['documents']) . "\n";
+        }
+        if (isset($payload['query'])) {
+            $text .= (is_string($payload['query']) ? $payload['query'] : json_encode($payload['query'])) . "\n";
+        }
+        return $text;
+    }
+
+    private static function flattenContent($content)
+    {
+        if (is_string($content)) {
+            return $content;
+        }
+        if (!is_array($content)) {
+            return '';
+        }
+        $out = '';
+        foreach ($content as $part) {
+            if (is_string($part)) {
+                $out .= $part . "\n";
+                continue;
+            }
+            if (is_array($part)) {
+                if (isset($part['text'])) {
+                    $out .= $part['text'] . "\n";
+                }
+                if (isset($part['input_text'])) {
+                    $out .= $part['input_text'] . "\n";
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * 非流式响应打码：递归掩码 content/text/transcript 等文本字段
+     */
+    private static function maskResponseBody($body)
+    {
+        $data = json_decode($body, true);
+        if (!is_array($data)) {
+            return $body;
+        }
+        self::maskTextFields($data);
+        return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
+    /**
+     * SSE 流式数据打码（逐行处理 data: {...} 块）
+     */
+    private static function maskStream($data)
+    {
+        if (strpos($data, 'data:') === false) {
+            return $data;
+        }
+        $lines = preg_split('/\r?\n/', $data);
+        foreach ($lines as &$line) {
+            if (strncmp($line, 'data: ', 6) !== 0 || trim($line) === 'data: [DONE]') {
+                continue;
+            }
+            $json = json_decode(substr($line, 6), true);
+            if (is_array($json)) {
+                self::maskTextFields($json);
+                $line = 'data: ' . json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+            }
+        }
+        unset($line);
+        return implode("\n", $lines);
+    }
+
+    private static function maskTextFields(&$node)
+    {
+        if (!is_array($node)) {
+            return;
+        }
+        foreach ($node as $k => &$v) {
+            if (is_array($v)) {
+                self::maskTextFields($v);
+            } elseif (is_string($v) && ($k === 'content' || $k === 'text' || $k === 'transcript')) {
+                $v = Sensitive::mask($v);
+            }
+        }
+        unset($v);
     }
 }

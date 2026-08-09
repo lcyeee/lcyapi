@@ -55,7 +55,11 @@
         build();
         titleEl.textContent = opts.title || '';
         titleEl.style.display = opts.title ? '' : 'none';
-        msgEl.textContent = opts.message || '';
+        if (opts.html) {
+            msgEl.innerHTML = opts.message || '';
+        } else {
+            msgEl.textContent = opts.message || '';
+        }
         msgEl.classList.toggle('long', !!opts.long);
         cancelBtn.textContent = opts.cancelText || '取消';
         cancelBtn.style.display = opts.alert ? 'none' : '';
@@ -67,9 +71,40 @@
         mask.classList.add('show');
     }
 
+    /* 更新当前已打开弹窗的内容/按钮（如异步加载中的测试结果） */
+    function refresh(opts) {
+        if (!isOpen()) { return; }
+        opts = opts || {};
+        if (opts.title !== undefined) {
+            titleEl.textContent = opts.title;
+            titleEl.style.display = opts.title ? '' : 'none';
+        }
+        if (opts.message !== undefined) {
+            if (opts.html) {
+                msgEl.innerHTML = opts.message;
+            } else {
+                msgEl.textContent = opts.message;
+            }
+        }
+        if (opts.cancelText !== undefined) {
+            cancelBtn.textContent = opts.cancelText;
+            cancelBtn.style.display = opts.alert ? 'none' : '';
+        }
+        if (opts.confirmText !== undefined) {
+            okBtn.textContent = opts.confirmText;
+        }
+        if (opts.danger !== undefined) {
+            okBtn.classList.toggle('danger', !!opts.danger);
+        }
+        if (opts.onConfirm !== undefined) {
+            onConfirm = opts.onConfirm || null;
+        }
+    }
+
     window.LcyModal = {
         open: open,
         close: close,
+        refresh: refresh,
         /* 单按钮信息弹窗 */
         alert: function (opts) {
             if (typeof opts === 'string') { opts = { message: opts }; }

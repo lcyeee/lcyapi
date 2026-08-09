@@ -52,6 +52,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             session_flash('flash_error', '删除失败');
         }
+    } elseif ($action === 'batch_save') {
+        $prices = isset($_POST['input_price']) && is_array($_POST['input_price']) ? $_POST['input_price'] : [];
+        $outs = isset($_POST['output_price']) && is_array($_POST['output_price']) ? $_POST['output_price'] : [];
+        $ctx = isset($_POST['context_length']) && is_array($_POST['context_length']) ? $_POST['context_length'] : [];
+        $maxout = isset($_POST['max_output']) && is_array($_POST['max_output']) ? $_POST['max_output'] : [];
+        $count = 0;
+        foreach ($prices as $mid => $price) {
+            $mid = (int)$mid;
+            if ($mid <= 0 || Model::getById($mid) === false) {
+                continue;
+            }
+            Model::update($mid, [
+                'input_price' => max(0, (float)$price),
+                'output_price' => max(0, (float)($outs[$mid] ?? 0)),
+                'context_length' => max(1, (int)($ctx[$mid] ?? 4096)),
+                'max_output' => max(1, (int)($maxout[$mid] ?? 2048)),
+            ]);
+            $count++;
+        }
+        session_flash('flash_success', '已批量更新 ' . $count . ' 个模型');
+        audit_log('model_batch_save', null, 'count=' . $count);
+        redirect(base_url('admin/models/index.php'));
+    } elseif ($action === 'save_missing') {
+        $names = isset($_POST['models']) && is_array($_POST['models']) ? $_POST['models'] : [];
+        $ins = isset($_POST['input_price']) && is_array($_POST['input_price']) ? $_POST['input_price'] : [];
+        $outs = isset($_POST['output_price']) && is_array($_POST['output_price']) ? $_POST['output_price'] : [];
+        $created = 0;
+        foreach ($names as $name) {
+            $name = trim((string)$name);
+            if ($name === '' || preg_match('/^[A-Za-z0-9_.\-\/:]{1,100}$/', $name) !== 1) {
+                continue;
+            }
+            if (Model::create([
+                'name' => $name,
+                'input_price' => max(0, (float)($ins[$name] ?? 0)),
+                'output_price' => max(0, (float)($outs[$name] ?? 0)),
+                'context_length' => 4096,
+                'max_output' => 2048,
+                'type' => 'chat',
+                'enabled' => 1,
+            ])) {
+                $created++;
+            }
+        }
+        session_flash('flash_success', '已录入 ' . $created . ' 个缺失模型');
+        audit_log('model_save_missing', null, 'count=' . $created);
+        redirect(base_url('admin/models/index.php'));
     }
     redirect(base_url('admin/models/index.php'));
 }
@@ -69,6 +116,25 @@ if ($keyword !== '') {
 $editId = (int)($_GET['edit'] ?? 0);
 $edit = $editId > 0 ? Model::getById($editId) : false;
 $m = $edit !== false ? $edit : ['id' => 0, 'name' => '', 'display_name' => '', 'description' => '', 'tags' => '', 'input_price' => 0, 'output_price' => 0, 'context_length' => 4096, 'max_output' => 2048, 'type' => 'chat', 'enabled' => 1, 'sort' => 0];
+
+/* 缺失模型检测：渠道配置了但 models 表没有的模型 */
+$channels = DB::fetchAll('SELECT id, name, models FROM channels WHERE status = 1');
+$existingNames = [];
+foreach ($models as $model) {
+    $existingNames[strtolower($model['name'])] = true;
+}
+$missingModels = [];
+foreach ($channels as $ch) {
+    if (empty($ch['models'])) {
+        continue;
+    }
+    foreach (array_filter(array_map('trim', explode(',', $ch['models']))) as $mm) {
+        if ($mm !== '' && !isset($existingNames[strtolower($mm)])) {
+            $missingModels[$mm] = ['channel_id' => (int)$ch['id'], 'channel_name' => $ch['name']];
+        }
+    }
+}
+ksort($missingModels);
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
@@ -140,48 +206,99 @@ $m = $edit !== false ? $edit : ['id' => 0, 'name' => '', 'display_name' => '', '
     </form>
 </div>
 
+<?php if (!empty($missingModels)) : ?>
+<div class="card" style="border-color:var(--danger);">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="color:var(--danger);"><?php echo svg_icon('alert'); ?>缺失模型检测：<?php echo count($missingModels); ?> 个模型已在渠道配置但未录入价格表</span>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm" id="checkAllMissing" onclick="checkMissing(true)">全选</button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="checkMissing(false)">取消全选</button>
+        </div>
+    </div>
+    <form method="post" action="<?php echo base_url('admin/models/index.php'); ?>" id="missingForm">
+        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+        <input type="hidden" name="action" value="save_missing">
+        <table class="table">
+            <thead><tr><th style="width:36px;"><input type="checkbox" onclick="checkMissing(this.checked)"></th><th>模型</th><th>来源渠道</th><th>输入价（$ / 1K）</th><th>输出价（$ / 1K）</th></tr></thead>
+            <tbody>
+            <?php foreach ($missingModels as $mmName => $src) : ?>
+                <tr>
+                    <td><input type="checkbox" class="ch-missing" name="models[]" value="<?php echo e($mmName); ?>" checked></td>
+                    <td><?php echo e($mmName); ?></td>
+                    <td><a href="<?php echo base_url('admin/channels/edit.php?id=' . $src['channel_id']); ?>"><?php echo e($src['channel_name']); ?></a></td>
+                    <td><input type="number" step="0.000001" min="0" name="input_price[<?php echo e($mmName); ?>]" class="form-control" style="width:110px; height:32px;" value="0"></td>
+                    <td><input type="number" step="0.000001" min="0" name="output_price[<?php echo e($mmName); ?>]" class="form-control" style="width:110px; height:32px;" value="0"></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div class="form-actions">
+            <button type="submit" class="btn">一键录入所选模型</button>
+            <span class="form-hint">录入后即可正常计费；价格可在下方列表批量修改</span>
+        </div>
+    </form>
+</div>
+<?php endif; ?>
+
 <div class="card">
     <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <span>模型列表（<?php echo count($models); ?> 个<?php echo $keyword !== '' ? '，关键词：' . e($keyword) : ''; ?>）</span>
-        <form method="get" style="display:flex; gap:8px; align-items:center;">
-            <input type="text" name="q" class="form-control" style="width:220px;" value="<?php echo e($keyword); ?>" placeholder="模型 / 显示名 / 标签">
-            <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>搜索</button>
-        </form>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <a class="btn btn-sm btn-secondary" href="<?php echo base_url('admin/models/sync.php'); ?>"><?php echo svg_icon('refresh'); ?>从渠道同步模型</a>
+            <form method="get" style="display:flex; gap:8px; align-items:center;">
+                <input type="text" name="q" class="form-control" style="width:220px;" value="<?php echo e($keyword); ?>" placeholder="模型 / 显示名 / 标签">
+                <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>搜索</button>
+            </form>
+        </div>
     </div>
-    <table class="table">
-        <thead>
-            <tr><th>ID</th><th>模型</th><th>类型</th><th>输入价</th><th>输出价</th><th>上下文</th><th>最大输出</th><th>状态</th><th>操作</th></tr>
-        </thead>
-        <tbody>
-        <?php if (empty($models)) : ?>
-            <tr><td colspan="9" class="text-center text-muted"><?php echo $keyword !== '' ? '没有匹配的模型' : '暂无模型'; ?></td></tr>
+    <form method="post" action="<?php echo base_url('admin/models/index.php'); ?>" id="batchPriceForm">
+        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+        <input type="hidden" name="action" value="batch_save">
+        <table class="table">
+            <thead>
+                <tr><th>ID</th><th>模型</th><th>类型</th><th>输入价</th><th>输出价</th><th>上下文</th><th>最大输出</th><th>状态</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+            <?php if (empty($models)) : ?>
+                <tr><td colspan="9" class="text-center text-muted"><?php echo $keyword !== '' ? '没有匹配的模型' : '暂无模型'; ?></td></tr>
+            <?php endif; ?>
+            <?php foreach ($models as $model) : ?>
+                <tr>
+                    <td><?php echo $model['id']; ?></td>
+                    <td><?php echo e($model['name']); ?><?php if ($model['display_name']) : ?> <span class="badge badge-gray"><?php echo e($model['display_name']); ?></span><?php endif; ?><?php if ($model['tags']) : ?><div class="form-hint"><?php echo e($model['tags']); ?></div><?php endif; ?></td>
+                    <td><?php echo e($model['type']); ?></td>
+                    <td><input type="number" step="0.000001" min="0" name="input_price[<?php echo (int)$model['id']; ?>]" class="form-control" style="width:110px; height:32px;" value="<?php echo e($model['input_price']); ?>"></td>
+                    <td><input type="number" step="0.000001" min="0" name="output_price[<?php echo (int)$model['id']; ?>]" class="form-control" style="width:110px; height:32px;" value="<?php echo e($model['output_price']); ?>"></td>
+                    <td><input type="number" min="1" name="context_length[<?php echo (int)$model['id']; ?>]" class="form-control" style="width:100px; height:32px;" value="<?php echo (int)$model['context_length']; ?>"></td>
+                    <td><input type="number" min="1" name="max_output[<?php echo (int)$model['id']; ?>]" class="form-control" style="width:100px; height:32px;" value="<?php echo (int)$model['max_output']; ?>"></td>
+                    <td><?php echo $model['enabled'] ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-gray">停用</span>'; ?></td>
+                    <td style="white-space:nowrap;">
+                        <a class="btn btn-sm" href="<?php echo base_url('admin/models/index.php?edit=' . $model['id']); ?>">编辑</a>
+                        <form method="post" style="display:inline-block; margin-right:4px;">
+                            <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                            <input type="hidden" name="id" value="<?php echo $model['id']; ?>">
+                            <button type="submit" name="action" value="toggle" class="btn btn-sm btn-warning"><?php echo $model['enabled'] ? '停用' : '启用'; ?></button>
+                        </form>
+                        <form method="post" style="display:inline-block;" data-confirm-title="删除模型" data-confirm-msg="确定删除该模型？删除后不可恢复。" data-confirm-ok="删除">
+                            <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                            <input type="hidden" name="id" value="<?php echo $model['id']; ?>">
+                            <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">删除</button>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php if (!empty($models)) : ?>
+            <div class="form-actions">
+                <button type="submit" class="btn">保存批量修改</button>
+            </div>
         <?php endif; ?>
-        <?php foreach ($models as $model) : ?>
-            <tr>
-                <td><?php echo $model['id']; ?></td>
-                <td><?php echo e($model['name']); ?><?php if ($model['display_name']) : ?> <span class="badge badge-gray"><?php echo e($model['display_name']); ?></span><?php endif; ?><?php if ($model['tags']) : ?><div class="form-hint"><?php echo e($model['tags']); ?></div><?php endif; ?></td>
-                <td><?php echo e($model['type']); ?></td>
-                <td>$<?php echo e(number_format((float)$model['input_price'], 6)); ?></td>
-                <td>$<?php echo e(number_format((float)$model['output_price'], 6)); ?></td>
-                <td><?php echo number_format((int)$model['context_length']); ?></td>
-                <td><?php echo number_format((int)$model['max_output']); ?></td>
-                <td><?php echo $model['enabled'] ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-gray">停用</span>'; ?></td>
-                <td style="white-space:nowrap;">
-                    <a class="btn btn-sm" href="<?php echo base_url('admin/models/index.php?edit=' . $model['id']); ?>">编辑</a>
-                    <form method="post" style="display:inline-block; margin-right:4px;">
-                        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
-                        <input type="hidden" name="id" value="<?php echo $model['id']; ?>">
-                        <button type="submit" name="action" value="toggle" class="btn btn-sm btn-warning"><?php echo $model['enabled'] ? '停用' : '启用'; ?></button>
-                    </form>
-                    <form method="post" style="display:inline-block;" data-confirm-title="删除模型" data-confirm-msg="确定删除该模型？删除后不可恢复。" data-confirm-ok="删除">
-                        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
-                        <input type="hidden" name="id" value="<?php echo $model['id']; ?>">
-                        <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">删除</button>
-                    </form>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
+    </form>
 </div>
+<script>
+function checkMissing(checked) {
+    document.querySelectorAll('.ch-missing').forEach(function (c) { c.checked = checked; });
+}
+</script>
 <?php require dirname(__DIR__) . '/templates/footer.php'; ?>

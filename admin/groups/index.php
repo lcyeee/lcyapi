@@ -107,7 +107,7 @@ $groups = Group::allGroups();
 <form method="post" action="<?php echo base_url('admin/groups/index.php'); ?>">
     <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
     <div class="card" style="max-width:760px;">
-        <div class="card-title">分组配置（JSON，对照 new-api 的 GroupRatio/UserUsableGroups）</div>
+        <div class="card-title">分组配置（JSON，对照 lcyapi 的 GroupRatio/UserUsableGroups）</div>
         <div class="form-group">
             <label>分组倍率 GroupRatio（组名 → 计费倍率）</label>
             <textarea name="group_ratio" class="form-control" rows="4" spellcheck="false"><?php echo e($groupRatio); ?></textarea>

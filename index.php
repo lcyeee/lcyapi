@@ -2,7 +2,7 @@
 $path = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
 $path = rtrim($path, '/');
 
-$isApi = strncmp($path, '/v1/', 4) === 0;
+$isApi = strncmp($path, '/v1/', 4) === 0 || strncmp($path, '/v1beta', 7) === 0;
 if ($isApi) {
     define('API_REQUEST', true);
 }
@@ -32,6 +32,19 @@ if (!app_installed()) {
 }
 
 if ($isApi) {
+        /* 多节点实例心跳上报 */
+        system_instances_heartbeat();
+        if (strncmp($path, '/v1beta', 7) === 0) {
+        $file = API_PATH . '/v1beta.php';
+        if (is_file($file)) {
+            require $file;
+            exit;
+        }
+        http_response_code(404);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => ['message' => 'Not Found', 'type' => 'invalid_request_error', 'code' => 'route_not_found']], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     $route = ltrim(substr($path, 3), '/');
     if (preg_match('#^models/([^/]+)$#', $route, $m)) {
         $_GET['model'] = urldecode($m[1]);

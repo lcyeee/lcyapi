@@ -177,6 +177,88 @@ function session_flash($key, $value = null)
     return '';
 }
 
+/* ==================== 系统实例心跳（多节点） ==================== */
+
+function system_instances_heartbeat()
+{
+    $node = (string)config('instance.node_name', '');
+    if ($node === '') {
+        $node = 'lcyapi-' . (function_exists('gethostname') ? gethostname() : 'node');
+    }
+    $node = mb_substr((string)preg_replace('/[^a-zA-Z0-9_\-]/', '', $node), 0, 50);
+    /* 60 秒节流，避免每次请求都写库 */
+    $cacheFile = CACHE_PATH . '/heartbeat-' . md5($node) . '.tmp';
+    if (is_file($cacheFile) && filemtime($cacheFile) > time() - 60) {
+        return;
+    }
+    @file_put_contents($cacheFile, time(), LOCK_EX);
+    try {
+        DB::query(
+            'INSERT INTO system_instances (node_name, ip, status, last_heartbeat) VALUES (?, ?, 1, NOW()) '
+            . 'ON DUPLICATE KEY UPDATE ip = VALUES(ip), status = 1, last_heartbeat = NOW()',
+            [$node, client_ip()]
+        );
+    } catch (Throwable $ex) {
+        write_log('instance heartbeat error: ' . $ex->getMessage());
+    }
+}
+
+/* ==================== Cloudflare Turnstile 人机验证 ==================== */
+
+function turnstile_enabled()
+{
+    return setting('turnstile_site_key', '') !== '' && setting('turnstile_secret_key', '') !== '';
+}
+
+/**
+ * 渲染 Turnstile 挂件（放入 form 内）
+ */
+function turnstile_widget()
+{
+    if (!turnstile_enabled()) {
+        return '';
+    }
+    return '<div class="cf-turnstile" data-sitekey="' . e(setting('turnstile_site_key')) . '"></div>'
+        . '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>';
+}
+
+/**
+ * 服务端校验 Turnstile 令牌
+ */
+function turnstile_verify($token = null)
+{
+    if (!turnstile_enabled()) {
+        return true;
+    }
+    if ($token === null) {
+        $token = isset($_POST['cf-turnstile-response']) ? (string)$_POST['cf-turnstile-response'] : '';
+    }
+    if ($token === '') {
+        return false;
+    }
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query([
+            'secret' => setting('turnstile_secret_key'),
+            'response' => $token,
+            'remoteip' => client_ip(),
+        ]),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code < 200 || $code >= 300) {
+        return false;
+    }
+    $json = json_decode((string)$resp, true);
+    return is_array($json) && !empty($json['success']);
+}
+
 function app_installed()
 {
     try {
@@ -252,6 +334,8 @@ function svg_icon($name, $class = 'i')
             'list'     => '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
             'cpu'      => '<rect x="7" y="7" width="10" height="10" rx="1"/><path d="M4 10H2M4 14H2M10 4V2M14 4V2M22 10h-2M22 14h-2M14 22v-2M10 22v-2M12 11v2M11 12h2"/>',
             'key'      => '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M15 8l3 3M19 4l2 2"/>',
+            'crown'    => '<path d="M3 7l4 4 5-6 5 6 4-4-2 12H5L3 7z"/><path d="M6 17h12"/>',
+            'server'   => '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
         ];
     }
     $inner = isset($icons[$name]) ? $icons[$name] : '';

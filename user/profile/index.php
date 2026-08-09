@@ -3,12 +3,28 @@ require dirname(__DIR__, 2) . '/includes/bootstrap.php';
 require dirname(__DIR__) . '/templates/header.php';
 
 $errors = [];
+$verifyInfo = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_verify()) {
         $errors[] = '页面已过期，请重试';
     } else {
         $formType = isset($_POST['form_type']) ? $_POST['form_type'] : 'profile';
-        if ($formType === 'delete') {
+        if ($formType === 'send_verify') {
+            $me = Auth::user();
+            $result = Auth::sendVerificationCodeByEmail((string)$me['email'], Auth::id());
+            if ($result['ok']) {
+                $verifyInfo = !empty($result['dev']) ? '验证码已生成（未配置 SMTP，已写入 data/logs/mail.log）' : '验证码已发送到您的邮箱';
+            } else {
+                $errors[] = $result['msg'];
+            }
+        } elseif ($formType === 'do_verify') {
+            $result = Auth::verifyEmail(Auth::id(), trim($_POST['code'] ?? ''));
+            if ($result['ok']) {
+                session_flash('flash_success', '邮箱验证成功');
+                redirect(base_url('user/profile/index.php'));
+            }
+            $errors[] = $result['msg'];
+        } elseif ($formType === 'delete') {
             /* 删除账号：二次确认文本必须输入当前用户名 */
             $confirmName = trim($_POST['confirm_username'] ?? '');
             $me = Auth::user();
@@ -48,6 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $data['email'] = null;
             }
+            /* 修改邮箱后需重新验证 */
+            $currentUser = Auth::user();
+            if (isset($data['email']) && $data['email'] !== $currentUser['email']) {
+                $data['email_verified'] = 0;
+            }
             if (empty($errors)) {
                 User::update(Auth::id(), $data);
                 session_flash('flash_success', '个人资料已更新');
@@ -77,7 +98,34 @@ $user = Auth::user();
         <div class="form-group">
             <label>邮箱</label>
             <input type="text" name="email" class="form-control" value="<?php echo e($user['email']); ?>">
+            <?php if (!empty($user['email'])) : ?>
+                <div class="form-hint">
+                    <?php if ((int)$user['email_verified'] === 1) : ?>
+                        <span class="badge badge-green">已验证</span>
+                    <?php else : ?>
+                        <span class="badge badge-orange">未验证</span>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
+        <?php if (!empty($user['email']) && (int)$user['email_verified'] !== 1) : ?>
+            <div class="verify-box" style="background:var(--card-2); border:1px dashed var(--border); border-radius:12px; padding:14px; margin-bottom:16px;">
+                <?php if ($verifyInfo !== '') : ?>
+                    <div class="alert alert-success"><?php echo e($verifyInfo); ?></div>
+                <?php endif; ?>
+                <form method="post" action="<?php echo base_url('user/profile/index.php'); ?>" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:0;">
+                    <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                    <input type="hidden" name="form_type" value="do_verify">
+                    <input type="text" name="code" class="form-control" style="flex:1; min-width:120px;" placeholder="6 位验证码" maxlength="6" inputmode="numeric" required>
+                    <button type="submit" class="btn btn-sm">验证</button>
+                </form>
+                <form method="post" action="<?php echo base_url('user/profile/index.php'); ?>" style="margin:8px 0 0;">
+                    <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                    <input type="hidden" name="form_type" value="send_verify">
+                    <button type="submit" class="btn btn-sm btn-secondary">发送验证码到邮箱</button>
+                </form>
+            </div>
+        <?php endif; ?>
         <div class="form-actions">
             <button type="submit" class="btn">保存</button>
             <a href="<?php echo base_url('user/index.php'); ?>" class="btn btn-secondary">返回</a>

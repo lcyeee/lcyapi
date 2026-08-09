@@ -53,10 +53,13 @@ function nav_active($needle, $requestPath)
                 <div class="menu">
                     <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>"><?php echo svg_icon('home'); ?>个人中心</a>
                     <a class="<?php echo nav_active('/user/profile/', $requestPath); ?>" href="<?php echo base_url('user/profile/index.php'); ?>"><?php echo svg_icon('user'); ?>个人资料</a>
+                    <a class="<?php echo nav_active('/user/profile/security', $requestPath); ?>" href="<?php echo base_url('user/profile/security.php'); ?>"><?php echo svg_icon('lock'); ?>账号安全</a>
                     <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?>令牌管理</a>
                     <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
                     <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
-                    <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码充值</a>
+            <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码充值</a>
+            <a class="<?php echo nav_active('/user/subscriptions/', $requestPath); ?>" href="<?php echo base_url('user/subscriptions/index.php'); ?>"><?php echo svg_icon('crown'); ?>订阅套餐</a>
+            <a class="<?php echo nav_active('/user/playground/', $requestPath); ?>" href="<?php echo base_url('user/playground/index.php'); ?>"><?php echo svg_icon('message'); ?>Playground 测试</a>
                     <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
                     <a class="<?php echo nav_active('/user/appearance/', $requestPath); ?>" href="<?php echo base_url('user/appearance/index.php'); ?>"><?php echo svg_icon('eye'); ?>外观主题</a>
                 </div>

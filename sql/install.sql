@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
     email VARCHAR(100) DEFAULT NULL,
+    email_verified TINYINT NOT NULL DEFAULT 0 COMMENT '邮箱已验证',
     password VARCHAR(255) NOT NULL,
     nickname VARCHAR(50) DEFAULT NULL,
     avatar VARCHAR(255) DEFAULT NULL,
@@ -13,6 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
     used_quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
     total_quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
     status TINYINT NOT NULL DEFAULT 1,
+    totp_secret VARCHAR(64) DEFAULT NULL COMMENT 'TOTP 密钥(Base32)',
+    totp_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '已开启2FA',
+    backup_codes TEXT DEFAULT NULL COMMENT '2FA备份码(哈希JSON)',
     api_count INT UNSIGNED NOT NULL DEFAULT 0,
     aff_code VARCHAR(16) DEFAULT NULL COMMENT '我的邀请码',
     aff_by INT UNSIGNED DEFAULT NULL COMMENT '邀请人用户ID',
@@ -36,6 +40,8 @@ CREATE TABLE IF NOT EXISTS channels (
     type VARCHAR(50) NOT NULL DEFAULT 'openai',
     base_url VARCHAR(255) NOT NULL,
     api_key TEXT NOT NULL,
+    api_keys TEXT DEFAULT NULL COMMENT '多 Key JSON 数组，转发时随机选取',
+    tags VARCHAR(255) DEFAULT NULL COMMENT '标签，逗号分隔',
     models TEXT DEFAULT NULL,
     weight INT UNSIGNED NOT NULL DEFAULT 1,
     priority INT NOT NULL DEFAULT 0,
@@ -211,6 +217,116 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_admin (admin_id),
     KEY idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS verifications (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL DEFAULT 'email' COMMENT 'email/forgot',
+    code VARCHAR(32) NOT NULL,
+    used TINYINT NOT NULL DEFAULT 0,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_email (email, type),
+    KEY idx_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    sid_hash VARCHAR(64) NOT NULL,
+    ip VARCHAR(45) DEFAULT NULL,
+    user_agent VARCHAR(255) DEFAULT NULL,
+    device VARCHAR(100) DEFAULT NULL,
+    last_active_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_sid (sid_hash),
+    KEY idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS oauth_bindings (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED DEFAULT NULL,
+    provider VARCHAR(20) NOT NULL COMMENT 'github/telegram',
+    openid VARCHAR(255) NOT NULL,
+    username VARCHAR(50) DEFAULT NULL,
+    avatar VARCHAR(255) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_provider_openid (provider, openid),
+    KEY idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS pay_orders (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_no VARCHAR(40) NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    provider VARCHAR(20) NOT NULL DEFAULT 'epay' COMMENT 'epay/stripe',
+    amount DECIMAL(14,6) NOT NULL,
+    quota DECIMAL(14,6) NOT NULL COMMENT '实际入账额度=金额×充值倍率',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/paid/failed/closed',
+    prepay_id VARCHAR(255) DEFAULT NULL,
+    pay_url TEXT DEFAULT NULL,
+    transaction_id VARCHAR(255) DEFAULT NULL,
+    raw_data TEXT DEFAULT NULL,
+    paid_at DATETIME DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_order_no (order_no),
+    KEY idx_user (user_id),
+    KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS subscription_plans (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    description VARCHAR(255) DEFAULT NULL,
+    quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000 COMMENT '周期额度',
+    price DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
+    days INT UNSIGNED NOT NULL DEFAULT 30 COMMENT '有效期天数',
+    status TINYINT NOT NULL DEFAULT 1,
+    sort INT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    plan_id INT UNSIGNED NOT NULL,
+    start_at DATETIME NOT NULL,
+    end_at DATETIME NOT NULL,
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1有效 0过期',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_user (user_id),
+    KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS system_tasks (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    type VARCHAR(50) NOT NULL COMMENT 'clean_logs/close_expired_orders/expire_subscriptions/clean_verifications',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1启用 0停用',
+    `interval` INT UNSIGNED NOT NULL DEFAULT 3600 COMMENT '执行间隔秒',
+    last_run_at DATETIME DEFAULT NULL,
+    last_result VARCHAR(500) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO system_tasks (name, type, status, `interval`) VALUES
+('清理请求日志', 'clean_logs', 1, 86400),
+('清理已用验证码', 'clean_verifications', 1, 86400),
+('关闭超时支付订单', 'close_expired_orders', 1, 1800),
+('过期订阅标记', 'expire_subscriptions', 1, 3600),
+('清理过期会话', 'expire_sessions', 1, 86400);
+
+CREATE TABLE IF NOT EXISTS system_instances (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    node_name VARCHAR(50) NOT NULL,
+    ip VARCHAR(45) DEFAULT NULL,
+    status TINYINT NOT NULL DEFAULT 1,
+    last_heartbeat DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_node (node_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

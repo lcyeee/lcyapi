@@ -1,6 +1,6 @@
 <?php
 /**
- * 分组服务（对照 new-api 的 group_ratio/user_usable_group/auto_group 配置驱动）
+ * 分组服务（对照 lcyapi 的 group_ratio/user_usable_group/auto_group 配置驱动）
  * 所有配置 JSON 存 settings 表：
  *  - group_ratio           {组名:倍率}           计费倍率，default 恒 1
  *  - user_usable_groups    {组名:中文描述}       用户可选分组（令牌组下拉）

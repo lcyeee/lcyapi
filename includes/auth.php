@@ -14,8 +14,79 @@ class Auth
             $GLOBALS['__current_user'] = null;
             return false;
         }
+        /* 会话管理：会话被撤销后强制下线 */
+        if (!self::sessionAlive((int)$user['id'])) {
+            self::logout();
+            return false;
+        }
         $GLOBALS['__current_user'] = $user;
         return true;
+    }
+
+    /**
+     * 校验当前会话是否仍有效（user_sessions 表中存在且未被撤销）
+     */
+    public static function sessionAlive($userId)
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return true;
+        }
+        try {
+            $hasTable = DB::value('SELECT id FROM user_sessions LIMIT 1');
+        } catch (Throwable $e) {
+            return true;
+        }
+        if ($hasTable === null) {
+            return true;
+        }
+        $sidHash = hash('sha256', session_id());
+        $row = DB::fetch('SELECT id FROM user_sessions WHERE sid_hash = ? AND user_id = ?', [$sidHash, (int)$userId]);
+        if ($row === false) {
+            return false;
+        }
+        DB::query('UPDATE user_sessions SET last_active_at = NOW() WHERE sid_hash = ?', [$sidHash]);
+        return true;
+    }
+
+    /**
+     * 记录本次登录会话（user_sessions），供个人中心展示与撤销
+     */
+    public static function recordSession($userId)
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+        try {
+            $ua = isset($_SERVER['HTTP_USER_AGENT']) ? mb_substr($_SERVER['HTTP_USER_AGENT'], 0, 255) : '';
+            DB::query(
+                'INSERT INTO user_sessions (user_id, sid_hash, ip, user_agent, device, last_active_at) VALUES (?, ?, ?, ?, ?, NOW()) '
+                . 'ON DUPLICATE KEY UPDATE last_active_at = NOW(), ip = VALUES(ip), user_agent = VALUES(user_agent), device = VALUES(device)',
+                [(int)$userId, hash('sha256', session_id()), client_ip(), $ua, self::detectDevice($ua)]
+            );
+        } catch (Throwable $ex) {
+            write_log('record session error: ' . $ex->getMessage());
+        }
+    }
+
+    private static function detectDevice($ua)
+    {
+        $ua = (string)$ua;
+        if (stripos($ua, 'Windows') !== false) {
+            $device = 'Windows';
+        } elseif (stripos($ua, 'Macintosh') !== false || stripos($ua, 'iPhone') !== false || stripos($ua, 'iPad') !== false) {
+            $device = 'Apple';
+        } elseif (stripos($ua, 'Android') !== false) {
+            $device = 'Android';
+        } elseif (stripos($ua, 'Linux') !== false) {
+            $device = 'Linux';
+        } else {
+            $device = '未知设备';
+        }
+        if (preg_match('/(Chrome|Firefox|Safari|Edge|Edg\/|Opera|MSIE|Trident)[\/ ]([\d.]+)/i', $ua, $m)) {
+            $browser = $m[1] === 'Edg/' ? 'Edge' : $m[1];
+            $device .= ' · ' . $browser;
+        }
+        return mb_substr($device, 0, 50);
     }
 
     public static function user()
@@ -65,15 +136,61 @@ class Auth
         }
         RateLimit::recordLogin($username, true);
         session_regenerate_id(true);
-        $_SESSION[self::SESSION_KEY] = (int)$user['id'];
-        User::updateLastLogin((int)$user['id'], client_ip());
-        self::recordLoginLog((int)$user['id'], $username, true, '');
-        $GLOBALS['__current_user'] = User::find((int)$user['id']);
+        if ((int)$user['totp_enabled'] === 1) {
+            $_SESSION['lcyapi_2fa_pending'] = (int)$user['id'];
+            return ['ok' => true, 'twofa' => true];
+        }
+        return self::completeLogin((int)$user['id'], $username);
+    }
+
+    /**
+     * 完成登录：写入登录态 + 更新最后登录 + 记录会话
+     */
+    private static function completeLogin($userId, $username)
+    {
+        unset($_SESSION['lcyapi_2fa_pending']);
+        session_regenerate_id(true);
+        $_SESSION[self::SESSION_KEY] = $userId;
+        User::updateLastLogin($userId, client_ip());
+        self::recordLoginLog($userId, $username, true, '');
+        self::recordSession($userId);
+        $GLOBALS['__current_user'] = User::find($userId);
         return ['ok' => true];
+    }
+
+    /**
+     * 2FA 二次校验：TOTP 6 位码或一次性备份码
+     */
+    public static function verify2fa($userId, $code)
+    {
+        $user = User::find((int)$userId);
+        if ($user === false) {
+            return ['ok' => false, 'msg' => '用户不存在'];
+        }
+        if (empty($_SESSION['lcyapi_2fa_pending']) || (int)$_SESSION['lcyapi_2fa_pending'] !== (int)$userId) {
+            return ['ok' => false, 'msg' => '登录状态已失效，请重新登录'];
+        }
+        $code = trim((string)$code);
+        if ($code === '') {
+            return ['ok' => false, 'msg' => '请输入验证码'];
+        }
+        $ok = TOTP::verify((string)$user['totp_secret'], $code) || TOTP::consumeBackupCode((int)$userId, $code);
+        if ($ok) {
+            return self::completeLogin((int)$userId, $user['username']);
+        }
+        self::recordLoginLog((int)$user['id'], $user['username'], false, '2FA 验证码错误');
+        return ['ok' => false, 'msg' => '验证码错误，请重试'];
     }
 
     public static function logout()
     {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            try {
+                DB::delete('user_sessions', 'sid_hash = ?', [hash('sha256', session_id())]);
+            } catch (Throwable $ex) {
+                write_log('logout session error: ' . $ex->getMessage());
+            }
+        }
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
@@ -81,6 +198,32 @@ class Auth
         }
         session_destroy();
         $GLOBALS['__current_user'] = null;
+    }
+
+    /**
+     * 撤销指定会话（不能撤销当前会话）
+     */
+    public static function revokeSession($sessionId, $userId)
+    {
+        $current = hash('sha256', session_id());
+        $row = DB::fetch('SELECT sid_hash FROM user_sessions WHERE id = ? AND user_id = ?', [(int)$sessionId, (int)$userId]);
+        if ($row === false) {
+            return ['ok' => false, 'msg' => '会话不存在'];
+        }
+        if (hash_equals($current, $row['sid_hash'])) {
+            return ['ok' => false, 'msg' => '不能撤销当前会话'];
+        }
+        DB::delete('user_sessions', 'id = ?', [(int)$sessionId]);
+        return ['ok' => true];
+    }
+
+    /**
+     * 撤销用户全部其他会话（保留当前）
+     */
+    public static function revokeAllSessions($userId)
+    {
+        DB::delete('user_sessions', 'user_id = ? AND sid_hash != ?', [(int)$userId, hash('sha256', session_id())]);
+        return ['ok' => true];
     }
 
     public static function register($data)
@@ -102,6 +245,11 @@ class Auth
         if ($validator->fails()) {
             return ['ok' => false, 'msg' => $validator->firstError()];
         }
+        /* 要求邮箱验证时，邮箱必填 */
+        $verifyRequired = setting('email_verify_required', '0') === '1';
+        if ($verifyRequired && $email === '') {
+            return ['ok' => false, 'msg' => '本站需要验证邮箱，请填写邮箱'];
+        }
         if ($email !== '' && Validator::make(['email' => $email], ['email' => 'email|unique:users,email'])->fails()) {
             return ['ok' => false, 'msg' => '邮箱格式不正确或已被使用'];
         }
@@ -121,12 +269,94 @@ class Auth
         if (setting('aff_enabled', '0') === '1' && isset($data['aff_code']) && trim($data['aff_code']) !== '') {
             self::bindAffiliate((int)$userId, trim($data['aff_code']));
         }
+        /* 需要邮箱验证时自动发送验证码 */
+        if ($verifyRequired && $email !== '') {
+            self::sendVerificationCodeByEmail($email, (int)$userId);
+        }
         RateLimit::recordLogin($username, true);
         session_regenerate_id(true);
         $_SESSION[self::SESSION_KEY] = (int)$userId;
+        self::recordSession((int)$userId);
         $GLOBALS['__current_user'] = User::find((int)$userId);
         return ['ok' => true, 'user_id' => (int)$userId];
     }
+
+    /**
+     * 给指定邮箱发送「验证邮箱」验证码（type=email）
+     */
+    public static function sendVerificationCodeByEmail($email, $userId = null)
+    {
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['ok' => false, 'msg' => '邮箱格式不正确'];
+        }
+        if ($userId !== null) {
+            $user = User::find((int)$userId);
+            if ($user !== false && strtolower($user['email']) === strtolower($email) && (int)$user['email_verified'] === 1) {
+                return ['ok' => false, 'msg' => '该邮箱已验证'];
+            }
+        }
+        return Mailer::sendVerificationCode($email, Mailer::TYPE_EMAIL);
+    }
+
+    /**
+     * 校验邮箱验证码并置 email_verified=1
+     */
+    public static function verifyEmail($userId, $code)
+    {
+        $user = User::find((int)$userId);
+        if ($user === false || empty($user['email'])) {
+            return ['ok' => false, 'msg' => '用户不存在或未绑定邮箱'];
+        }
+        if (Mailer::verifyCode($user['email'], Mailer::TYPE_EMAIL, $code)) {
+            User::update((int)$userId, ['email_verified' => 1]);
+            return ['ok' => true];
+        }
+        return ['ok' => false, 'msg' => '验证码错误或已过期'];
+    }
+
+    /**
+     * 找回密码第一步：发送重置验证码（type=forgot）
+     */
+    public static function sendForgotCode($email)
+    {
+        $email = strtolower(trim($email));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['ok' => false, 'msg' => '邮箱格式不正确'];
+        }
+        $user = User::findByEmail($email);
+        if ($user === false) {
+            return ['ok' => false, 'msg' => '该邮箱未注册'];
+        }
+        return Mailer::sendVerificationCode($email, Mailer::TYPE_FORGOT);
+    }
+
+    /**
+     * 找回密码第二步：校验验证码并重置密码
+     */
+    public static function resetPassword($email, $code, $newPassword)
+    {
+        $email = strtolower(trim($email));
+        if (strlen($newPassword) < 6 || strlen($newPassword) > 64) {
+            return ['ok' => false, 'msg' => '新密码长度需在 6-64 位之间'];
+        }
+        $user = User::findByEmail($email);
+        if ($user === false) {
+            return ['ok' => false, 'msg' => '该邮箱未注册'];
+        }
+        if (!Mailer::verifyCode($email, Mailer::TYPE_FORGOT, $code)) {
+            return ['ok' => false, 'msg' => '验证码错误或已过期'];
+        }
+        User::update((int)$user['id'], ['password' => self::hashPassword($newPassword)]);
+        /* 重置密码后注销全部登录态（会话表 + 当前 session） */
+        if (DB::value('SELECT id FROM user_sessions LIMIT 1') !== null) {
+            DB::delete('user_sessions', 'user_id = ?', [(int)$user['id']]);
+        }
+        if (!empty($_SESSION) && isset($_SESSION[self::SESSION_KEY]) && (int)$_SESSION[self::SESSION_KEY] === (int)$user['id']) {
+            self::logout();
+        }
+        return ['ok' => true];
+    }
+
 
     public static function hashPassword($password)
     {

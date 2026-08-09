@@ -12,6 +12,8 @@ $affCode = isset($_GET['aff']) ? strtoupper(trim($_GET['aff'])) : '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_verify()) {
         $error = '页面已过期，请重试';
+    } elseif (!turnstile_verify()) {
+        $error = '人机验证未通过，请重试';
     } else {
         $affCode = strtoupper(trim($_POST['aff'] ?? $affCode));
         $data = [
@@ -55,8 +57,8 @@ $pageTitle = '注册';
                 <div class="form-hint">3-50 位，仅限字母、数字、下划线、横线</div>
             </div>
             <div class="form-group">
-                <label>邮箱（选填）</label>
-                <input type="email" name="email" class="form-control" value="<?php echo e(isset($_POST['email']) ? $_POST['email'] : ''); ?>">
+                <label>邮箱<?php echo setting('email_verify_required', '0') === '1' ? '（必填，用于验证）' : '（选填）'; ?></label>
+                <input type="email" name="email" class="form-control" <?php echo setting('email_verify_required', '0') === '1' ? 'required ' : ''; ?>value="<?php echo e(isset($_POST['email']) ? $_POST['email'] : ''); ?>">
             </div>
             <div class="form-group">
                 <label>密码</label>
@@ -69,6 +71,7 @@ $pageTitle = '注册';
                     <input type="text" name="aff" class="form-control" value="<?php echo e($affCode); ?>" placeholder="有邀请码可填写">
                 </div>
             <?php endif; ?>
+            <?php echo turnstile_widget(); ?>
             <button type="submit" class="btn" style="width:100%;">注 册</button>
             <div class="extra">
                 <a href="<?php echo base_url('user/login.php'); ?>">已有账号，去登录</a>

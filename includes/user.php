@@ -74,7 +74,7 @@ class User
 
     public static function update($id, $data)
     {
-        $fields = ['username', 'email', 'password', 'nickname', 'avatar', 'role', 'quota', 'used_quota', 'total_quota', 'status', 'group'];
+        $fields = ['username', 'email', 'email_verified', 'password', 'nickname', 'avatar', 'role', 'quota', 'used_quota', 'total_quota', 'status', 'group', 'totp_secret', 'totp_enabled', 'backup_codes'];
         $update = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {

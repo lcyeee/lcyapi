@@ -101,9 +101,88 @@ $affLink = base_url('user/register.php?aff=' . urlencode($user['aff_code'] ?: ''
     </div>
 <?php endif; ?>
 
+<?php
+$epayEnabled = setting('epay_enabled', '0') === '1';
+$stripeEnabled = setting('stripe_enabled', '0') === '1';
+$payRatio = (float)setting('pay_ratio', '1');
+$payOrders = DB::fetchAll('SELECT * FROM pay_orders WHERE user_id = ? ORDER BY id DESC LIMIT 10', [Auth::id()]);
+?>
+
+<?php if ($epayEnabled || $stripeEnabled) : ?>
+<div class="card">
+    <div class="card-title">在线充值</div>
+    <div class="form-group">
+        <label>充值金额（$）</label>
+        <div class="amount-quick" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+            <?php foreach ([5, 10, 20, 50, 100] as $preset) : ?>
+                <button type="button" class="btn btn-sm btn-secondary" data-amount="<?php echo $preset; ?>">$<?php echo $preset; ?></button>
+            <?php endforeach; ?>
+        </div>
+        <input type="number" name="pay_amount" id="payAmount" step="1" min="1" class="form-control" placeholder="输入金额（整数美元）">
+        <div class="form-hint">到账额度 = 金额 × 充值倍率（当前 <?php echo $payRatio; ?>）</div>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <?php if ($epayEnabled) : ?>
+            <button type="button" class="btn" data-pay-submit="epay"><?php echo svg_icon('wallet'); ?>易支付充值</button>
+        <?php endif; ?>
+        <?php if ($stripeEnabled) : ?>
+            <button type="button" class="btn" data-pay-submit="stripe"><?php echo svg_icon('wallet'); ?>Stripe 充值</button>
+        <?php endif; ?>
+    </div>
+    <form method="post" action="<?php echo base_url('user/wallet/pay.php'); ?>" id="payForm" style="display:none;">
+        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+        <input type="hidden" name="amount" id="payFormAmount">
+        <input type="hidden" name="provider" id="payFormProvider">
+    </form>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var amountInput = document.getElementById('payAmount');
+    var amountForm = document.getElementById('payFormAmount');
+    var providerForm = document.getElementById('payFormProvider');
+    var payForm = document.getElementById('payForm');
+    document.querySelectorAll('[data-amount]').forEach(function (btn) {
+        btn.addEventListener('click', function () { amountInput.value = btn.getAttribute('data-amount'); });
+    });
+    document.querySelectorAll('[data-pay-submit]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var v = parseFloat(amountInput.value);
+            if (!v || v <= 0) { alert('请输入充值金额'); return; }
+            amountForm.value = v;
+            providerForm.value = btn.getAttribute('data-pay-submit');
+            payForm.submit();
+        });
+    });
+});
+</script>
+<?php endif; ?>
+
 <div class="card">
     <div class="card-title">充值记录</div>
-    <table class="table">
+    <?php if (!empty($payOrders)) : ?>
+        <table class="table">
+            <thead><tr><th>订单号</th><th>方式</th><th>金额</th><th>入账额度</th><th>状态</th><th>时间</th></tr></thead>
+            <tbody>
+            <?php foreach ($payOrders as $po) : ?>
+                <tr>
+                    <td style="font-family:monospace; font-size:12px;"><?php echo e($po['order_no']); ?></td>
+                    <td><span class="badge badge-blue"><?php echo e($po['provider']); ?></span></td>
+                    <td>$<?php echo e(number_format((float)$po['amount'], 2)); ?></td>
+                    <td>$<?php echo e(number_format((float)$po['quota'], 4)); ?></td>
+                    <td>
+                        <?php
+                        $statusLabel = ['pending' => '待支付', 'paid' => '已到账', 'failed' => '失败', 'closed' => '已关闭'];
+                        $statusClass = ['pending' => 'badge-orange', 'paid' => 'badge-green', 'failed' => 'badge-red', 'closed' => ''];
+                        ?>
+                        <span class="badge <?php echo isset($statusClass[$po['status']]) ? $statusClass[$po['status']] : ''; ?>"><?php echo isset($statusLabel[$po['status']]) ? $statusLabel[$po['status']] : e($po['status']); ?></span>
+                    </td>
+                    <td><?php echo e($po['created_at']); ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+    <table class="table" <?php echo !empty($payOrders) ? 'style="display:none;"' : ''; ?>>
         <thead>
             <tr><th>ID</th><th>金额</th><th>方式</th><th>备注</th><th>时间</th></tr>
         </thead>
