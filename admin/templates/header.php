@@ -56,6 +56,8 @@ function admin_nav($needle, $requestPath)
             <a class="<?php echo admin_nav('/admin/suppliers.php', $requestPath); ?>" href="<?php echo base_url('admin/suppliers.php'); ?>"><?php echo svg_icon('server'); ?>供应商/部署</a>
             <a class="<?php echo admin_nav('/admin/oauth_bindings.php', $requestPath); ?>" href="<?php echo base_url('admin/oauth_bindings.php'); ?>"><?php echo svg_icon('globe'); ?>OAuth 绑定</a>
             <a class="<?php echo admin_nav('/admin/chat_presets.php', $requestPath); ?>" href="<?php echo base_url('admin/chat_presets.php'); ?>"><?php echo svg_icon('send'); ?>聊天预设</a>
+            <a class="<?php echo admin_nav('/admin/prefill_groups.php', $requestPath); ?>" href="<?php echo base_url('admin/prefill_groups.php'); ?>"><?php echo svg_icon('ratio'); ?>预填充分组</a>
+            <a class="<?php echo admin_nav('/admin/twofa_stats.php', $requestPath); ?>" href="<?php echo base_url('admin/twofa_stats.php'); ?>"><?php echo svg_icon('lock'); ?>2FA 统计</a>
         </nav>
     </aside>
     <div class="sidebar-mask" id="sidebarMask"></div>
