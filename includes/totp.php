@@ -65,39 +65,43 @@ class TOTP
     }
 
     /**
-     * 生成 8 个一次性备份码（返回明文数组；调用方存哈希）
+     * Generate and Store Backup Codes in independent table
      */
-    public static function generateBackupCodes($count = 8)
+    public static function generateBackupCodes($userId, $count = 8)
     {
+        /* 删除旧码 */
+        DB::delete('backup_codes', 'user_id = ?', [(int)$userId]);
         $codes = [];
         for ($i = 0; $i < $count; $i++) {
-            $codes[] = strtoupper(substr(bin2hex(random_bytes(5)), 0, 10));
+            $code = strtoupper(substr(bin2hex(random_bytes(5)), 0, 10));
+            $codes[] = $code;
+            DB::insert('backup_codes', ['user_id' => (int)$userId, 'code_hash' => password_hash($code, PASSWORD_DEFAULT)]);
         }
         return $codes;
     }
 
     /**
-     * 备份码哈希校验：找到匹配则移除该码（一次性）
+     * Consume Backup Code from independent table
      */
     public static function consumeBackupCode($userId, $code)
     {
-        $user = User::find((int)$userId);
-        if ($user === false || empty($user['backup_codes'])) {
-            return false;
-        }
-        $hashes = json_decode($user['backup_codes'], true);
-        if (!is_array($hashes)) {
-            return false;
-        }
         $code = strtoupper(trim($code));
-        foreach ($hashes as $i => $hash) {
-            if (password_verify($code, $hash)) {
-                array_splice($hashes, $i, 1);
-                User::update((int)$userId, ['backup_codes' => json_encode(array_values($hashes))]);
+        $rows = DB::fetchAll('SELECT id, code_hash FROM backup_codes WHERE user_id = ? AND is_used = 0', [(int)$userId]);
+        foreach ($rows as $row) {
+            if (password_verify($code, $row['code_hash'])) {
+                DB::update('backup_codes', ['is_used' => 1], 'id = ?', [(int)$row['id']]);
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Get remaining backup codes count
+     */
+    public static function remainingBackupCodes($userId)
+    {
+        return (int)DB::value('SELECT COUNT(*) FROM backup_codes WHERE user_id = ? AND is_used = 0', [(int)$userId]);
     }
 
     private static function base32Decode($secret)

@@ -66,6 +66,31 @@ function task_midjourney_poll(&$result)
     $result .= "Midjourney 轮询：更新 {$updated} 个任务；";
 }
 
+function task_reset_subscriptions(&$result)
+{
+    /* 重置应重置的订阅额度（按额度重置周期） */
+    $resetCount = 0;
+    $plans = DB::fetchAll('SELECT sp.id AS plan_id, sp.quota, sp.quota_reset_period, us.id AS sub_id, us.user_id, us.quota_left, us.last_reset_at FROM subscription_plans sp JOIN user_subscriptions us ON us.plan_id = sp.id WHERE us.status = 1 AND sp.quota_reset_period IS NOT NULL AND sp.quota_reset_period != "never"');
+    foreach ($plans as $p) {
+        $due = false;
+        $period = $p['quota_reset_period'];
+        if ($period === 'daily') {
+            $due = $p['last_reset_at'] === null || strtotime($p['last_reset_at']) < strtotime('today');
+        } elseif ($period === 'weekly') {
+            $due = $p['last_reset_at'] === null || strtotime($p['last_reset_at']) < strtotime('monday this week');
+        } elseif ($period === 'monthly') {
+            $due = $p['last_reset_at'] === null || strtotime($p['last_reset_at']) < strtotime('first day of this month');
+        }
+        if ($due) {
+            DB::update('user_subscriptions', ['quota_left' => (float)$p['quota'], 'last_reset_at' => date('Y-m-d H:i:s')], 'id = ?', [(int)$p['sub_id']]);
+            $resetCount++;
+        }
+    }
+    /* 订阅到期标记 */
+    $expired = DB::query("UPDATE user_subscriptions SET status = 0 WHERE status = 1 AND end_at < NOW()")->rowCount();
+    $result .= "订阅重置 {$resetCount} 个，到期标记 {$expired} 个；";
+}
+
 function task_auto_health(&$result)
 {
     $channels = DB::fetchAll('SELECT * FROM channels WHERE status = 1');

@@ -16,6 +16,7 @@ class Billing
             ? (float)$priceRow['cache_input_price']
             : $inputPrice;
         $cost = (($uncached / 1000) * $inputPrice) + (($cachedTokens / 1000) * $cachePrice) + (($completionTokens / 1000) * $outputPrice);
+        $cost = max(0, min($cost, 2147483647)); /* 饱和保护 */
         return max(0, $cost);
     }
 

@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
     status TINYINT NOT NULL DEFAULT 1,
     totp_secret VARCHAR(64) DEFAULT NULL COMMENT 'TOTP 密钥(Base32)',
     totp_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '已开启2FA',
+    totp_fail_count INT NOT NULL DEFAULT 0,
+    totp_locked_until DATETIME DEFAULT NULL,
+    auth_version INT NOT NULL DEFAULT 0,
     backup_codes TEXT DEFAULT NULL COMMENT '2FA备份码(哈希JSON)',
     api_count INT UNSIGNED NOT NULL DEFAULT 0,
     aff_code VARCHAR(16) DEFAULT NULL COMMENT '我的邀请码',
@@ -297,6 +300,7 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
     days INT UNSIGNED NOT NULL DEFAULT 30 COMMENT '有效期天数',
     status TINYINT NOT NULL DEFAULT 1,
     sort INT NOT NULL DEFAULT 0,
+    quota_reset_period VARCHAR(20) DEFAULT NULL COMMENT 'never/daily/weekly/monthly',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -308,6 +312,9 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     start_at DATETIME NOT NULL,
     end_at DATETIME NOT NULL,
     status TINYINT NOT NULL DEFAULT 1 COMMENT '1有效 0过期',
+    quota_left DECIMAL(14,6) DEFAULT NULL,
+    last_reset_at DATETIME DEFAULT NULL,
+    allow_wallet_overflow TINYINT NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_user (user_id),
     KEY idx_status (status)
@@ -333,7 +340,9 @@ INSERT INTO system_tasks (name, type, status, `interval`) VALUES
 ('清理过期会话', 'expire_sessions', 1, 86400),
 ('渠道健康检查', 'auto_health', 1, 3600),
 ('上游模型自动同步', 'sync_upstream_models', 1, 86400),
-('清理过期令牌', 'clean_expired_tokens', 1, 86400);
+('清理过期令牌', 'clean_expired_tokens', 1, 86400),
+('Midjourney 轮询', 'midjourney_poll', 1, 30),
+('订阅额度重置', 'reset_subscriptions', 1, 3600);
 
 CREATE TABLE IF NOT EXISTS system_instances (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -372,6 +381,15 @@ CREATE TABLE IF NOT EXISTS prefill_groups (
     type VARCHAR(50) NOT NULL DEFAULT 'channel',
     data TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS backup_codes (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    code_hash VARCHAR(255) NOT NULL,
+    is_used TINYINT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

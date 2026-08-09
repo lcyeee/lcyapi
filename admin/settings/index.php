@@ -95,6 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $toolPrices = mb_substr(trim($_POST['tool_prices'] ?? ''), 0, 2000);
     $trustedRedirectDomains = mb_substr(trim($_POST['trusted_redirect_domains'] ?? ''), 0, 500);
     $notifyRateLimit = max(1, (int)($_POST['notify_rate_limit'] ?? 60));
+    $totpMaxFails = max(1, (int)($_POST['totp_max_fails'] ?? 5));
+    $totpLockMinutes = max(1, (int)($_POST['totp_lock_minutes'] ?? 5));
+    $maxActiveSessions = max(0, (int)($_POST['max_active_sessions'] ?? 0));
+    $emailDomainRestriction = empty($_POST['email_domain_restriction']) ? '0' : '1';
+    $emailDomainWhitelist = mb_substr(trim($_POST['email_domain_whitelist'] ?? ''), 0, 500);
+    $emailAliasRestriction = empty($_POST['email_alias_restriction']) ? '0' : '1';
+    $trustQuota = max(0, (float)($_POST['trust_quota'] ?? 0));
+    $checkinBonusMaxDays = max(1, (int)($_POST['checkin_bonus_max_days'] ?? 7));
 
     if ($name === '') {
         session_flash('flash_error', '站点名称不能为空');
@@ -188,6 +196,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setting_set('tool_prices', $toolPrices);
     setting_set('trusted_redirect_domains', $trustedRedirectDomains);
     setting_set('notify_rate_limit', (string)$notifyRateLimit);
+    setting_set('totp_max_fails', (string)$totpMaxFails);
+    setting_set('totp_lock_minutes', (string)$totpLockMinutes);
+    setting_set('max_active_sessions', (string)$maxActiveSessions);
+    setting_set('email_domain_restriction', $emailDomainRestriction);
+    setting_set('email_domain_whitelist', $emailDomainWhitelist);
+    setting_set('email_alias_restriction', $emailAliasRestriction);
+    setting_set('trust_quota', (string)$trustQuota);
+    setting_set('checkin_bonus_max_days', (string)$checkinBonusMaxDays);
 
     audit_log('settings_save', null, '系统设置已更新');
 
@@ -530,6 +546,40 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
         <div class="form-group">
             <label>通知频率限制（次数/小时）</label>
             <input type="number" name="notify_rate_limit" min="1" class="form-control" value="<?php echo e(isset($s['notify_rate_limit']) ? $s['notify_rate_limit'] : '60'); ?>">
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>2FA 最大失败次数</label>
+                <input type="number" name="totp_max_fails" min="1" class="form-control" value="<?php echo e(isset($s['totp_max_fails']) ? $s['totp_max_fails'] : '5'); ?>">
+            </div>
+            <div style="flex:1;">
+                <label>2FA 锁定时间（分钟）</label>
+                <input type="number" name="totp_lock_minutes" min="1" class="form-control" value="<?php echo e(isset($s['totp_lock_minutes']) ? $s['totp_lock_minutes'] : '5'); ?>">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>每用户最大活跃会话数（0=不限制）</label>
+            <input type="number" name="max_active_sessions" min="0" class="form-control" value="<?php echo e(isset($s['max_active_sessions']) ? $s['max_active_sessions'] : '0'); ?>">
+        </div>
+        <div class="form-group">
+            <label>信任额度旁路（用户余额≥此值跳过预扣费，0=关闭）</label>
+            <input type="number" name="trust_quota" step="0.01" min="0" class="form-control" value="<?php echo e(isset($s['trust_quota']) ? $s['trust_quota'] : '0'); ?>">
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">邮箱域名白名单限制</label>
+            <label class="ios-switch"><input type="checkbox" name="email_domain_restriction" value="1" <?php echo (isset($s['email_domain_restriction']) && $s['email_domain_restriction'] === '1') ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group">
+            <label>允许注册的邮箱域名（逗号分隔，需开启上方开关）</label>
+            <input type="text" name="email_domain_whitelist" class="form-control" value="<?php echo e(isset($s['email_domain_whitelist']) ? $s['email_domain_whitelist'] : ''); ?>" placeholder="example.com,company.com">
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">邮箱别名限制（禁止 + 和 . 别名）</label>
+            <label class="ios-switch"><input type="checkbox" name="email_alias_restriction" value="1" <?php echo (isset($s['email_alias_restriction']) && $s['email_alias_restriction'] === '1') ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group">
+            <label>连续签到奖励封顶天数</label>
+            <input type="number" name="checkin_bonus_max_days" min="1" class="form-control" value="<?php echo e(isset($s['checkin_bonus_max_days']) ? $s['checkin_bonus_max_days'] : '7'); ?>">
         </div>
     </div>
 

@@ -105,6 +105,13 @@ class Relay
         if ($freeModelSkipDeduct && $estimatedCost <= 0) {
             $estimatedCost = 0;
         }
+        /* 信任额度旁路：高余额/高额度用户跳过预扣费 */
+        $trustQuota = (float)setting('trust_quota', '0');
+        if ($trustQuota > 0 && (float)$user['quota'] >= $trustQuota && (float)$token['remain_quota'] >= $trustQuota) {
+            $estimatedCost = 0;
+        }
+        /* 饱和保护：防止 float 乘积溢出导致负数 */
+        $estimatedCost = max(0, min($estimatedCost, 2147483647));
         if ((float)$user['quota'] < $estimatedCost) {
             return self::openaiError('账户余额不足，预估需要 $' . number_format($estimatedCost, 6), 'insufficient_quota', 'insufficient_user_quota', 403);
         }

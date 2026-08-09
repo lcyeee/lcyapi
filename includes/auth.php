@@ -57,6 +57,14 @@ class Auth
             return;
         }
         try {
+            /* 会话数量限制：超过则删除最旧的非当前会话 */
+            $maxSessions = (int)setting('max_active_sessions', '0');
+            if ($maxSessions > 0) {
+                $count = (int)DB::value('SELECT COUNT(*) FROM user_sessions WHERE user_id = ?', [(int)$userId]);
+                if ($count >= $maxSessions) {
+                    DB::query('DELETE FROM user_sessions WHERE user_id = ? ORDER BY last_active_at ASC LIMIT ' . ($count - $maxSessions + 1), [(int)$userId]);
+                }
+            }
             $ua = isset($_SERVER['HTTP_USER_AGENT']) ? mb_substr($_SERVER['HTTP_USER_AGENT'], 0, 255) : '';
             DB::query(
                 'INSERT INTO user_sessions (user_id, sid_hash, ip, user_agent, device, last_active_at) VALUES (?, ?, ?, ?, ?, NOW()) '
@@ -167,6 +175,11 @@ class Auth
         if ($user === false) {
             return ['ok' => false, 'msg' => '用户不存在'];
         }
+        /* 2FA 锁定检测 */
+        if (!empty($user['totp_locked_until']) && strtotime($user['totp_locked_until']) > time()) {
+            $remaining = strtotime($user['totp_locked_until']) - time();
+            return ['ok' => false, 'msg' => '2FA 已锁定，请 ' . ceil($remaining / 60) . ' 分钟后再试'];
+        }
         if (empty($_SESSION['lcyapi_2fa_pending']) || (int)$_SESSION['lcyapi_2fa_pending'] !== (int)$userId) {
             return ['ok' => false, 'msg' => '登录状态已失效，请重新登录'];
         }
@@ -176,10 +189,24 @@ class Auth
         }
         $ok = TOTP::verify((string)$user['totp_secret'], $code) || TOTP::consumeBackupCode((int)$userId, $code);
         if ($ok) {
+            /* 成功：重置失败计数 */
+            DB::update('users', ['totp_fail_count' => 0, 'totp_locked_until' => null], 'id = ?', [(int)$userId]);
+            /* 递增 auth_version（安全事件） */
+            DB::query('UPDATE users SET auth_version = auth_version + 1 WHERE id = ?', [(int)$userId]);
             return self::completeLogin((int)$userId, $user['username']);
         }
+        /* 失败：递增计数，达到阈值锁定 */
+        $maxFails = max(1, (int)setting('totp_max_fails', '5'));
+        $lockMinutes = max(1, (int)setting('totp_lock_minutes', '5'));
+        $newFailCount = (int)$user['totp_fail_count'] + 1;
+        if ($newFailCount >= $maxFails) {
+            DB::update('users', ['totp_fail_count' => $newFailCount, 'totp_locked_until' => date('Y-m-d H:i:s', time() + $lockMinutes * 60)], 'id = ?', [(int)$userId]);
+            write_log("2FA locked for user #{$userId} after {$newFailCount} failed attempts", 'auth');
+        } else {
+            DB::update('users', ['totp_fail_count' => $newFailCount], 'id = ?', [(int)$userId]);
+        }
         self::recordLoginLog((int)$user['id'], $user['username'], false, '2FA 验证码错误');
-        return ['ok' => false, 'msg' => '验证码错误，请重试'];
+        return ['ok' => false, 'msg' => '验证码错误，请重试' . ($newFailCount >= $maxFails ? '（已锁定 ' . $lockMinutes . ' 分钟）' : '（剩余 ' . ($maxFails - $newFailCount) . ' 次机会）')];
     }
 
     public static function logout()
@@ -252,6 +279,33 @@ class Auth
         }
         if ($email !== '' && Validator::make(['email' => $email], ['email' => 'email|unique:users,email'])->fails()) {
             return ['ok' => false, 'msg' => '邮箱格式不正确或已被使用'];
+        }
+        if ($email !== '') {
+            /* 邮箱域名白名单 */
+            $domainRestrict = setting('email_domain_restriction', '0') === '1';
+            $domains = setting('email_domain_whitelist', '');
+            if ($domainRestrict && $domains !== '') {
+                $host = strtolower((string)parse_url('mailto:' . $email, PHP_URL_HOST));
+                $allowed = array_map('trim', explode(',', str_replace('，', ',', $domains)));
+                $match = false;
+                foreach ($allowed as $d) {
+                    $d = strtolower(trim($d, " \t\n\r\0\x0B."));
+                    if ($d !== '' && ($host === $d || substr($host, -strlen($d) - 1) === '.' . $d)) {
+                        $match = true;
+                        break;
+                    }
+                }
+                if (!$match) {
+                    return ['ok' => false, 'msg' => '该邮箱域名不在允许注册的范围内'];
+                }
+            }
+            /* 邮箱别名限制（禁止 + 和 . 别名混淆） */
+            if (setting('email_alias_restriction', '0') === '1') {
+                $local = strstr($email, '@', true);
+                if ($local !== false && (strpos($local, '+') !== false || strpos($local, '.') !== false)) {
+                    return ['ok' => false, 'msg' => '不允许使用含 + 或 . 的邮箱别名'];
+                }
+            }
         }
         $userId = User::create([
             'username' => $username,
