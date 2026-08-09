@@ -112,6 +112,7 @@ class Auth
             'role' => 'user',
             'quota' => (float)setting('default_quota', config('site.default_quota', 0)),
             'status' => 1,
+            'group' => 'default',
         ]);
         if ($userId === false || $userId === 0) {
             return ['ok' => false, 'msg' => '注册失败，请稍后重试'];

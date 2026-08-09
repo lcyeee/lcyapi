@@ -49,19 +49,46 @@ class Relay
             return self::openaiError('账户余额不足，预估需要 $' . number_format($estimatedCost, 6), 'insufficient_quota', 'insufficient_user_quota', 403);
         }
 
+        /* 令牌模型限制：{模型名:单次最大token}，估算超限直接拒绝 */
+        $limits = Token::modelLimits($token);
+        if (is_array($limits) && array_key_exists($model, $limits)) {
+            $estTokens = self::estimateTokens($payload);
+            if ($estTokens > (int)$limits[$model]) {
+                return self::openaiError('模型 ' . $model . ' 单次请求超过令牌限制（最多 ' . (int)$limits[$model] . ' tokens）', 'invalid_request_error', 'model_token_limit_exceeded', 400);
+            }
+        }
+
         $isStream = !empty($payload['stream']) && in_array($apiType, ['chat', 'completion'], true);
         $maxAttempts = 1 + max(0, (int)setting('retry_count', config('relay.retry_count', 0)));
         $excludeIds = [];
         $startMs = microtime(true);
         $lastAttempt = null;
 
+        /* 分组：令牌分组优先，其次用户分组；auto_groups 作为候选组列表依次尝试 */
+        $groups = [isset($token['group']) && trim((string)$token['group']) !== '' ? (string)$token['group'] : (isset($user['group']) && trim((string)$user['group']) !== '' ? (string)$user['group'] : 'default')];
+        if (isset($token['auto_groups']) && trim((string)$token['auto_groups']) !== '') {
+            foreach (array_filter(array_map('trim', explode(',', $token['auto_groups']))) as $g) {
+                if (!in_array($g, $groups, true)) {
+                    $groups[] = $g;
+                }
+            }
+        }
+
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-            $channel = Channel::select($model, $excludeIds);
+            $selectedGroup = null;
+            $channel = false;
+            foreach ($groups as $g) {
+                $channel = Channel::select($model, $excludeIds, $g);
+                if ($channel !== false) {
+                    $selectedGroup = $g;
+                    break;
+                }
+            }
             if ($channel === false) {
                 break;
             }
             $excludeIds[] = (int)$channel['id'];
-            $result = self::forward($channel, $endpoint, $rawBody, $isStream);
+            $result = self::forward($channel, $endpoint, $rawBody, $isStream, $model);
             if ($result['ok']) {
                 $duration = (int)round((microtime(true) - $startMs) * 1000);
                 $usage = isset($result['usage']) ? $result['usage'] : null;
@@ -85,6 +112,11 @@ class Relay
         }
 
         $duration = (int)round((microtime(true) - $startMs) * 1000);
+        if ($attempt === 0) {
+            $errorMsg = '无可用的渠道（当前分组下无匹配渠道）';
+            self::settle($user, $token, null, $model, $apiType, 0, 0, 0, $duration, false, $errorMsg, $rawBody, $estimatedCost);
+            return self::openaiError('该模型当前无可用的渠道，请检查渠道分组与模型配置', 'insufficient_quota', 'no_available_channel', 404);
+        }
         $errorMsg = '所有渠道均失败';
         if ($lastAttempt !== null && !empty($lastAttempt['error'])) {
             $errorMsg .= '：' . $lastAttempt['error'];
@@ -130,15 +162,8 @@ class Relay
         return ['ok' => true, 'token' => $result['token'], 'user' => $result['user']];
     }
 
-    private static function estimateCost($apiType, $payload, $price)
+    private static function estimateTokens($payload)
     {
-        if ($apiType === 'image') {
-            $n = isset($payload['n']) ? max(1, (int)$payload['n']) : 1;
-            return Billing::calculateImage($price, $n);
-        }
-        if ($apiType === 'audio' || $apiType === 'speech') {
-            return 0.006;
-        }
         $text = '';
         if (isset($payload['prompt'])) {
             $text .= is_array($payload['prompt']) ? json_encode($payload['prompt']) : $payload['prompt'];
@@ -149,8 +174,19 @@ class Relay
         if (isset($payload['input'])) {
             $text .= is_array($payload['input']) ? json_encode($payload['input']) : $payload['input'];
         }
-        $tokens = Billing::estimateTokens($text);
-        return Billing::calculate($price, $tokens, 0);
+        return Billing::estimateTokens($text);
+    }
+
+    private static function estimateCost($apiType, $payload, $price)
+    {
+        if ($apiType === 'image') {
+            $n = isset($payload['n']) ? max(1, (int)$payload['n']) : 1;
+            return Billing::calculateImage($price, $n);
+        }
+        if ($apiType === 'audio' || $apiType === 'speech') {
+            return 0.006;
+        }
+        return Billing::calculate($price, self::estimateTokens($payload), 0);
     }
 
     private static function computeCost($apiType, $payload, $price, $promptTokens, $completionTokens)
@@ -165,7 +201,7 @@ class Relay
         return Billing::calculate($price, $promptTokens, $completionTokens);
     }
 
-private static function forward($channel, $endpoint, $body, &$isStream)
+private static function forward($channel, $endpoint, $body, &$isStream, $model = '')
     {
         $url = Channel::buildUrl($channel, $endpoint);
         $timeout = max(10, (int)config('relay.timeout', 120));
@@ -179,6 +215,19 @@ private static function forward($channel, $endpoint, $body, &$isStream)
             $headers[] = 'api-key: ' . $apiKey;
         } else {
             $headers[] = 'Authorization: Bearer ' . $apiKey;
+        }
+        foreach (Channel::extraHeaders($channel) as $extra) {
+            $headers[] = $extra;
+        }
+        if ($model !== '') {
+            $mapped = Channel::mapModel($channel, $model);
+            if ($mapped !== $model) {
+                $payload = json_decode($body, true);
+                if (is_array($payload)) {
+                    $payload['model'] = $mapped;
+                    $body = json_encode($payload);
+                }
+            }
         }
         $ch = curl_init();
         curl_setopt_array($ch, [

@@ -18,7 +18,7 @@ class User
 
     public static function create($data)
     {
-        $fields = ['username', 'email', 'password', 'nickname', 'avatar', 'role', 'quota', 'status', 'aff_code', 'aff_by'];
+        $fields = ['username', 'email', 'password', 'nickname', 'avatar', 'role', 'quota', 'status', 'aff_code', 'aff_by', 'group'];
         $insert = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -74,7 +74,7 @@ class User
 
     public static function update($id, $data)
     {
-        $fields = ['username', 'email', 'password', 'nickname', 'avatar', 'role', 'quota', 'used_quota', 'total_quota', 'status'];
+        $fields = ['username', 'email', 'password', 'nickname', 'avatar', 'role', 'quota', 'used_quota', 'total_quota', 'status', 'group'];
         $update = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {

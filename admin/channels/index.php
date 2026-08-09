@@ -94,13 +94,13 @@ $channels = Channel::all();
     <thead>
         <tr>
             <th style="width:36px;"><input type="checkbox" id="checkAll" onclick="toggleAll(this)"></th>
-            <th>ID</th><th>名称</th><th>类型</th><th>地址</th><th>模型</th><th>权重</th>
+            <th>ID</th><th>名称</th><th>类型</th><th>地址</th><th>模型</th><th>分组</th><th>权重</th>
             <th>优先级</th><th>状态</th><th>成功/失败</th><th>最后使用</th><th>操作</th>
         </tr>
     </thead>
     <tbody>
     <?php if (empty($channels)) : ?>
-        <tr><td colspan="12" class="text-center text-muted">暂无渠道，点击右上角创建</td></tr>
+        <tr><td colspan="13" class="text-center text-muted">暂无渠道，点击右上角创建</td></tr>
     <?php endif; ?>
     <?php foreach ($channels as $channel) : ?>
         <tr>
@@ -110,6 +110,7 @@ $channels = Channel::all();
             <td><span class="badge badge-blue"><?php echo e($channel['type']); ?></span></td>
             <td style="max-width:220px; word-break:break-all;"><?php echo e($channel['base_url']); ?></td>
             <td><?php echo e($channel['models'] ?: '全部'); ?></td>
+            <td><?php echo e($channel['group'] ?: '全部'); ?></td>
             <td><?php echo (int)$channel['weight']; ?></td>
             <td><?php echo (int)$channel['priority']; ?></td>
             <td>

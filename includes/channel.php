@@ -16,12 +16,15 @@ class Channel
 
     public static function create($data)
     {
-        $fields = ['name', 'type', 'base_url', 'api_key', 'models', 'weight', 'priority', 'status', 'remark'];
+        $fields = ['name', 'type', 'base_url', 'api_key', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark'];
         $insert = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
                 $insert[$field] = $data[$field];
             }
+        }
+        if (!isset($insert['group'])) {
+            $insert['group'] = '';
         }
         if (!isset($insert['type'])) {
             $insert['type'] = 'openai';
@@ -46,7 +49,7 @@ class Channel
 
     public static function update($id, $data)
     {
-        $fields = ['name', 'type', 'base_url', 'api_key', 'models', 'weight', 'priority', 'status', 'remark', 'last_use_at'];
+        $fields = ['name', 'type', 'base_url', 'api_key', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark', 'last_use_at'];
         $update = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -98,9 +101,9 @@ class Channel
         return false;
     }
 
-    public static function candidates($model, $excludeIds = [])
+    public static function candidates($model, $excludeIds = [], $group = '')
     {
-        $cacheKey = 'channels:available:' . $model;
+        $cacheKey = 'channels:available:' . $model . ':' . ($group !== '' ? $group : '*');
         $cached = Cache::get($cacheKey);
         if (is_array($cached)) {
             $candidates = $cached;
@@ -108,6 +111,9 @@ class Channel
             $candidates = [];
             $channels = self::all(1);
             foreach ($channels as $channel) {
+                if (!self::inGroup($channel, $group)) {
+                    continue;
+                }
                 if (self::supportsModel($channel, $model)) {
                     $candidates[] = $channel;
                 }
@@ -122,9 +128,79 @@ class Channel
         return $candidates;
     }
 
-    public static function select($model, $excludeIds = [])
+    /**
+     * 渠道分组匹配：渠道 group 为空表示服务所有分组；否则需包含请求分组
+     */
+    public static function inGroup($channel, $group)
     {
-        $candidates = self::candidates($model, $excludeIds);
+        $groups = trim((string)($channel['group'] ?? ''));
+        if ($groups === '') {
+            return true;
+        }
+        if ($group === '') {
+            return true;
+        }
+        $list = array_filter(array_map('trim', explode(',', $groups)));
+        return in_array($group, $list, true);
+    }
+
+    /**
+     * 模型映射：将客户端模型映射到上游模型（JSON：{客户端模型:上游模型}）
+     * 支持 exact 与 * 前缀匹配：如 {"gpt-4o":"gpt-4o-0613","*":"gpt-3.5-turbo"}（顺序：先精确后通配）
+     */
+    public static function mapModel($channel, $model)
+    {
+        $mapping = isset($channel['model_mapping']) ? trim((string)$channel['model_mapping']) : '';
+        if ($mapping === '') {
+            return $model;
+        }
+        $map = json_decode($mapping, true);
+        if (!is_array($map) || empty($map)) {
+            return $model;
+        }
+        if (isset($map[$model])) {
+            return (string)$map[$model];
+        }
+        foreach ($map as $pattern => $target) {
+            if ($pattern === '*') {
+                continue;
+            }
+            if (substr((string)$pattern, -1) === '*' && strncmp($model, rtrim((string)$pattern, '*'), strlen(rtrim((string)$pattern, '*'))) === 0) {
+                return str_replace('*', substr($model, strlen(rtrim((string)$pattern, '*'))), (string)$target);
+            }
+        }
+        if (isset($map['*'])) {
+            return (string)$map['*'];
+        }
+        return $model;
+    }
+
+    /**
+     * 解析渠道附加请求头 JSON
+     */
+    public static function extraHeaders($channel)
+    {
+        $raw = isset($channel['extra_headers']) ? trim((string)$channel['extra_headers']) : '';
+        if ($raw === '') {
+            return [];
+        }
+        $json = json_decode($raw, true);
+        if (!is_array($json) || empty($json)) {
+            return [];
+        }
+        $headers = [];
+        foreach ($json as $name => $value) {
+            $name = trim((string)$name);
+            if ($name !== '') {
+                $headers[] = $name . ': ' . (string)$value;
+            }
+        }
+        return $headers;
+    }
+
+    public static function select($model, $excludeIds = [], $group = '')
+    {
+        $candidates = self::candidates($model, $excludeIds, $group);
         if (empty($candidates)) {
             return false;
         }
@@ -279,6 +355,9 @@ public static function test($id)
             $headers[] = 'api-key: ' . $channel['api_key'];
         } else {
             $headers[] = 'Authorization: Bearer ' . $channel['api_key'];
+        }
+        foreach (self::extraHeaders($channel) as $extra) {
+            $headers[] = $extra;
         }
         return $headers;
     }

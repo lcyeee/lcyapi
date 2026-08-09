@@ -8,7 +8,7 @@ class Token
         return self::PREFIX . bin2hex(random_bytes(24));
     }
 
-    public static function create($userId, $name, $remainQuota = -1.0, $expiredAt = null, $allowIps = null)
+    public static function create($userId, $name, $remainQuota = -1.0, $expiredAt = null, $allowIps = null, $group = 'default', $modelLimits = null, $autoGroups = null)
     {
         $key = self::generateKey();
         $data = [
@@ -17,12 +17,19 @@ class Token
             'key' => $key,
             'hash' => hash('sha256', $key),
             'remain_quota' => (float)$remainQuota,
+            'group' => trim((string)$group) !== '' ? mb_substr(trim((string)$group), 0, 32) : 'default',
         ];
         if ($expiredAt !== null && $expiredAt !== '') {
             $data['expired_at'] = $expiredAt;
         }
         if ($allowIps !== null && trim((string)$allowIps) !== '') {
             $data['allow_ips'] = mb_substr(trim((string)$allowIps), 0, 500);
+        }
+        if ($modelLimits !== null && trim((string)$modelLimits) !== '') {
+            $data['model_limits'] = trim((string)$modelLimits);
+        }
+        if ($autoGroups !== null && trim((string)$autoGroups) !== '') {
+            $data['auto_groups'] = mb_substr(trim((string)$autoGroups), 0, 255);
         }
         $id = DB::insert('tokens', $data);
         return $id ? ['id' => (int)$id, 'key' => $key] : false;
@@ -55,11 +62,11 @@ class Token
         if ($token === false) {
             return false;
         }
-        $fields = ['name', 'remain_quota', 'status', 'expired_at', 'allow_ips'];
+        $fields = ['name', 'remain_quota', 'status', 'expired_at', 'allow_ips', 'group', 'model_limits', 'auto_groups'];
         $update = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
-                $update[$field] = $data[$field];
+                $update[$field] = $data[$field] === null ? null : (is_string($data[$field]) ? trim($data[$field]) : $data[$field]);
             }
         }
         if (empty($update)) {
@@ -150,6 +157,48 @@ class Token
             return $key;
         }
         return substr($key, 0, 10) . '••••' . substr($key, -4);
+    }
+
+    /**
+     * 解析模型额度限制 JSON：{模型名:单次最大token}，格式非法返回 null
+     */
+    public static function modelLimits($token)
+    {
+        $raw = isset($token['model_limits']) ? trim((string)$token['model_limits']) : '';
+        if ($raw === '') {
+            return null;
+        }
+        $limits = json_decode($raw, true);
+        if (!is_array($limits) || empty($limits)) {
+            return null;
+        }
+        $clean = [];
+        foreach ($limits as $model => $limit) {
+            if (is_string($model) && is_numeric($limit)) {
+                $clean[$model] = (int)$limit;
+            }
+        }
+        return empty($clean) ? null : $clean;
+    }
+
+    /**
+     * 令牌分组列表：group + auto_groups
+     */
+    public static function groups($token)
+    {
+        $groups = [];
+        $g = isset($token['group']) ? trim((string)$token['group']) : '';
+        if ($g !== '') {
+            $groups[] = $g;
+        }
+        if (isset($token['auto_groups']) && trim((string)$token['auto_groups']) !== '') {
+            foreach (array_filter(array_map('trim', explode(',', $token['auto_groups']))) as $g2) {
+                if (!in_array($g2, $groups, true)) {
+                    $groups[] = $g2;
+                }
+            }
+        }
+        return $groups;
     }
 
     /**

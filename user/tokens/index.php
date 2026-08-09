@@ -14,8 +14,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $quota = (float)($_POST['remain_quota'] ?? -1);
         $expired = trim($_POST['expired_at'] ?? '');
         $allowIps = trim($_POST['allow_ips'] ?? '');
+        $group = trim($_POST['group'] ?? '');
+        $modelLimits = trim($_POST['model_limits'] ?? '');
+        $autoGroups = trim($_POST['auto_groups'] ?? '');
         if ($name === '') {
             session_flash('flash_error', '请输入令牌名称');
+            redirect(base_url('user/tokens/index.php'));
+        }
+        if ($modelLimits !== '' && json_decode($modelLimits, true) === null) {
+            session_flash('flash_error', '模型限制必须是合法 JSON，例如 {"gpt-4o":8000}');
             redirect(base_url('user/tokens/index.php'));
         }
         if ($allowIps !== '') {
@@ -26,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
-        $result = Token::create(Auth::id(), $name, $quota, $expired !== '' ? $expired : null, $allowIps !== '' ? $allowIps : null);
+        $result = Token::create(Auth::id(), $name, $quota, $expired !== '' ? $expired : null, $allowIps !== '' ? $allowIps : null, $group !== '' ? $group : 'default', $modelLimits !== '' ? $modelLimits : null, $autoGroups !== '' ? $autoGroups : null);
         if ($result !== false) {
             $newKeyFlash = $result['key'];
         } else {
@@ -39,8 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $quota = $quotaInput === '' ? -1.0 : (float)$quotaInput;
         $expired = trim($_POST['expired_at'] ?? '');
         $allowIps = trim($_POST['allow_ips'] ?? '');
+        $group = trim($_POST['group'] ?? '');
+        $modelLimits = trim($_POST['model_limits'] ?? '');
+        $autoGroups = trim($_POST['auto_groups'] ?? '');
         if ($name === '') {
             session_flash('flash_error', '令牌名称不能为空');
+            redirect(base_url('user/tokens/index.php'));
+        }
+        if ($modelLimits !== '' && json_decode($modelLimits, true) === null) {
+            session_flash('flash_error', '模型限制必须是合法 JSON');
             redirect(base_url('user/tokens/index.php'));
         }
         if ($allowIps !== '') {
@@ -56,6 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'remain_quota' => $quota,
             'expired_at' => $expired !== '' ? $expired : null,
             'allow_ips' => $allowIps !== '' ? mb_substr($allowIps, 0, 500) : null,
+            'group' => $group !== '' ? mb_substr($group, 0, 32) : null,
+            'model_limits' => $modelLimits !== '' ? $modelLimits : null,
+            'auto_groups' => $autoGroups !== '' ? mb_substr($autoGroups, 0, 255) : null,
         ], Auth::id());
         session_flash($ok ? 'flash_success' : 'flash_error', $ok ? '令牌已更新' : '更新失败');
         redirect(base_url('user/tokens/index.php'));
@@ -100,6 +117,18 @@ $tokens = Token::getByUser(Auth::id());
             <label>IP 白名单（逗号分隔，留空不限）</label>
             <input type="text" name="allow_ips" class="form-control" style="width:220px;" placeholder="1.2.3.4,5.6.7.8">
         </div>
+        <div class="form-group" style="margin:0;">
+            <label>分组（留空=default）</label>
+            <input type="text" name="group" class="form-control" style="width:120px;" placeholder="default">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>模型限制 JSON（可选，如 {"gpt-4o":8000}）</label>
+            <input type="text" name="model_limits" class="form-control" style="width:220px;" placeholder='{"gpt-4o":8000}'>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>自动分组（逗号分隔，可选）</label>
+            <input type="text" name="auto_groups" class="form-control" style="width:180px;" placeholder="vip,internal">
+        </div>
         <button type="submit" class="btn">创建</button>
     </form>
 </div>
@@ -108,17 +137,18 @@ $tokens = Token::getByUser(Auth::id());
     <div class="card-title">我的令牌（<?php echo count($tokens); ?>）</div>
     <table class="table">
         <thead>
-            <tr><th>ID</th><th>名称</th><th>密钥</th><th>剩余额度</th><th>已用</th>
+            <tr><th>ID</th><th>名称</th><th>分组</th><th>密钥</th><th>剩余额度</th><th>已用</th>
                 <th>次数</th><th>过期时间</th><th>状态</th><th>最后使用</th><th>操作</th></tr>
         </thead>
         <tbody>
         <?php if (empty($tokens)) : ?>
-            <tr><td colspan="10" class="text-center text-muted">暂无令牌，创建第一个吧</td></tr>
+            <tr><td colspan="11" class="text-center text-muted">暂无令牌，创建第一个吧</td></tr>
         <?php endif; ?>
         <?php foreach ($tokens as $token) : ?>
             <tr>
                 <td><?php echo $token['id']; ?></td>
                 <td><?php echo e($token['name']); ?></td>
+                <td><span class="badge badge-blue"><?php echo e($token['group'] ?? 'default'); ?></span></td>
                 <td><code><?php echo e(Token::maskKey($token['key'])); ?></code></td>
                 <td><?php echo (float)$token['remain_quota'] < 0 ? '不限' : '$' . e(number_format((float)$token['remain_quota'], 4)); ?></td>
                 <td>$<?php echo e(number_format((float)$token['used_quota'], 4)); ?></td>
@@ -145,7 +175,7 @@ $tokens = Token::getByUser(Auth::id());
                 </td>
             </tr>
             <tr id="token-edit-<?php echo $token['id']; ?>" style="display:none;">
-                <td colspan="10">
+                <td colspan="11">
                     <form method="post" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
                         <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
                         <input type="hidden" name="action" value="edit">
@@ -165,6 +195,18 @@ $tokens = Token::getByUser(Auth::id());
                         <div class="form-group" style="margin:0;">
                             <label>IP 白名单（逗号分隔，留空不限）</label>
                             <input type="text" name="allow_ips" class="form-control" style="width:220px;" value="<?php echo e($token['allow_ips'] ?? ''); ?>">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>分组</label>
+                            <input type="text" name="group" class="form-control" style="width:110px;" value="<?php echo e($token['group'] ?? 'default'); ?>">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>模型限制 JSON</label>
+                            <input type="text" name="model_limits" class="form-control" style="width:200px;" value="<?php echo e($token['model_limits'] ?? ''); ?>" placeholder='{"gpt-4o":8000}'>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>自动分组</label>
+                            <input type="text" name="auto_groups" class="form-control" style="width:160px;" value="<?php echo e($token['auto_groups'] ?? ''); ?>">
                         </div>
                         <button type="submit" class="btn btn-sm">保存</button>
                     </form>

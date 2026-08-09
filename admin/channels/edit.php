@@ -53,6 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'base_url' => rtrim(trim($_POST['base_url'] ?? ''), '/'),
         'api_key' => trim($_POST['api_key'] ?? ''),
         'models' => trim($_POST['models'] ?? ''),
+        'group' => mb_substr(trim($_POST['group'] ?? ''), 0, 500),
+        'model_mapping' => trim($_POST['model_mapping'] ?? ''),
+        'extra_headers' => trim($_POST['extra_headers'] ?? ''),
         'weight' => max(1, (int)($_POST['weight'] ?? 1)),
         'priority' => (int)($_POST['priority'] ?? 0),
         'status' => empty($_POST['status']) ? 0 : 1,
@@ -94,6 +97,9 @@ $name = $channel ? $channel['name'] : '';
 $type = $channel ? $channel['type'] : 'openai';
 $baseUrl = $channel ? $channel['base_url'] : '';
 $models = $channel ? $channel['models'] : '';
+$group = $channel ? $channel['group'] : '';
+$modelMapping = $channel ? $channel['model_mapping'] : '';
+$extraHeaders = $channel ? $channel['extra_headers'] : '';
 $weight = $channel ? (int)$channel['weight'] : 1;
 $priority = $channel ? (int)$channel['priority'] : 0;
 $status = $channel ? (int)$channel['status'] : 1;
@@ -146,6 +152,21 @@ $remark = $channel ? $channel['remark'] : '';
                 </div>
                 <div id="modelGroups"></div>
             </div>
+        </div>
+        <div class="form-group">
+            <label>服务分组</label>
+            <input type="text" name="group" class="form-control" value="<?php echo e($group); ?>" placeholder="default,vip（逗号分隔，留空=服务所有分组）">
+            <div class="form-hint">令牌/用户按分组匹配渠道；留空表示该渠道服务所有分组</div>
+        </div>
+        <div class="form-group">
+            <label>模型映射（JSON，可选）</label>
+            <textarea name="model_mapping" class="form-control" rows="2" placeholder='{"gpt-4o":"gpt-4o-0613","*":"gpt-3.5-turbo"}'><?php echo e($modelMapping); ?></textarea>
+            <div class="form-hint">客户端模型 → 上游模型；支持精确匹配、* 前缀通配与 "*" 兜底，转发时自动替换</div>
+        </div>
+        <div class="form-group">
+            <label>附加请求头（JSON，可选）</label>
+            <textarea name="extra_headers" class="form-control" rows="2" placeholder='{"X-Custom":"value"}'><?php echo e($extraHeaders); ?></textarea>
+            <div class="form-hint">转发到上游时附加的 HTTP 请求头</div>
         </div>
         <div class="form-group" style="display:flex; gap:16px;">
             <div style="flex:1;">

@@ -44,6 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_flash('flash_success', '额度已调整：' . ($delta > 0 ? '+' : '') . number_format($delta, 4));
             audit_log('user_quota', "#{$id}", $user['username'] . ' 调整=' . $delta);
         }
+    } elseif ($action === 'group') {
+        $newGroup = mb_substr(trim($_POST['group'] ?? ''), 0, 32);
+        if ($newGroup === '') {
+            session_flash('flash_error', '分组不能为空');
+        } else {
+            User::update($id, ['group' => $newGroup]);
+            session_flash('flash_success', '用户分组已更新：' . $newGroup);
+            audit_log('user_group', "#{$id}", $user['username'] . ' -> ' . $newGroup);
+        }
     } elseif ($action === 'reset_pass') {
         $newPass = trim($_POST['new_pass'] ?? '');
         if (strlen($newPass) < 6 || strlen($newPass) > 64) {
@@ -94,13 +103,13 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
     <table class="table">
         <thead>
             <tr>
-                <th>ID</th><th>用户名</th><th>角色</th><th>余额</th><th>已用</th>
+                <th>ID</th><th>用户名</th><th>角色</th><th>分组</th><th>余额</th><th>已用</th>
                 <th>累计充值</th><th>调用次数</th><th>状态</th><th>注册时间</th><th>操作</th>
             </tr>
         </thead>
         <tbody>
         <?php if (empty($users)) : ?>
-            <tr><td colspan="10" class="text-center text-muted">暂无用户</td></tr>
+            <tr><td colspan="11" class="text-center text-muted">暂无用户</td></tr>
         <?php endif; ?>
         <?php foreach ($users as $u) : ?>
             <tr>
@@ -109,6 +118,7 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
                     <?php if ($u['email']) : ?><div class="form-hint"><?php echo e($u['email']); ?></div><?php endif; ?>
                 </td>
                 <td><?php echo $u['role'] === 'admin' ? '<span class="badge badge-yellow">管理员</span>' : '<span class="badge badge-gray">用户</span>'; ?></td>
+                <td><span class="badge badge-blue"><?php echo e($u['group'] ?? 'default'); ?></span></td>
                 <td>$<?php echo e(number_format((float)$u['quota'], 4)); ?></td>
                 <td>$<?php echo e(number_format((float)$u['used_quota'], 4)); ?></td>
                 <td>$<?php echo e(number_format((float)$u['total_quota'], 4)); ?></td>
@@ -139,7 +149,7 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
                 </td>
             </tr>
             <tr id="ops-<?php echo $u['id']; ?>" style="display:none;">
-                <td colspan="10">
+                <td colspan="11">
                     <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
                         <form method="post" style="display:flex; gap:8px; align-items:flex-end;">
                             <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
@@ -148,6 +158,16 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
                             <div>
                                 <label>额度调整（可正可负）</label>
                                 <input type="number" name="delta" step="0.0001" class="form-control" style="width:140px;" placeholder="如 5 或 -5">
+                            </div>
+                            <button type="submit" class="btn btn-sm">确认</button>
+                        </form>
+                        <form method="post" style="display:flex; gap:8px; align-items:flex-end;">
+                            <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                            <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
+                            <input type="hidden" name="action" value="group">
+                            <div>
+                                <label>修改分组</label>
+                                <input type="text" name="group" class="form-control" style="width:120px;" value="<?php echo e($u['group'] ?? 'default'); ?>">
                             </div>
                             <button type="submit" class="btn btn-sm">确认</button>
                         </form>
