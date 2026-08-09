@@ -107,6 +107,30 @@ function format_quota($quota)
     return number_format((float)$quota, 4, '.', '');
 }
 
+/**
+ * 按后台「额度显示」设置格式化余额/费用（库内仍为美元，仅展示层换算）
+ */
+function quota_display($quota)
+{
+    static $type = null, $symbol = null, $rate = null;
+    if ($type === null) {
+        $type = setting('quota_display_type', 'USD');
+        $symbol = setting('custom_currency_symbol', '');
+        $rate = max(0.0001, (float)setting('custom_currency_rate', '1'));
+    }
+    $value = (float)$quota;
+    switch ($type) {
+        case 'CNY':
+            return '¥' . number_format($value * $rate, 2, '.', ',');
+        case 'TOKENS':
+            return number_format($value * $rate, 0, '.', ',') . ' 积分';
+        case 'CUSTOM':
+            return ($symbol !== '' ? $symbol : '') . number_format($value * $rate, 2, '.', ',');
+        default:
+            return '$' . number_format($value, 4, '.', ',');
+    }
+}
+
 function format_money($amount)
 {
     return '$' . number_format((float)$amount, 4, '.', ',');

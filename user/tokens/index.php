@@ -21,6 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_flash('flash_error', '请输入令牌名称');
             redirect(base_url('user/tokens/index.php'));
         }
+        $maxTokens = (int)setting('max_user_tokens', '0');
+        if ($maxTokens > 0) {
+            $count = (int)DB::value('SELECT COUNT(*) FROM tokens WHERE user_id = ?', [Auth::id()]);
+            if ($count >= $maxTokens) {
+                session_flash('flash_error', '令牌数量已达上限（最多 ' . $maxTokens . ' 个），请删除不用的令牌');
+                redirect(base_url('user/tokens/index.php'));
+            }
+        }
         if ($modelLimits !== '' && json_decode($modelLimits, true) === null) {
             session_flash('flash_error', '模型限制必须是合法 JSON，例如 {"gpt-4o":8000}');
             redirect(base_url('user/tokens/index.php'));

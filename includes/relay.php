@@ -91,6 +91,7 @@ class Relay
         $excludeIds = [];
         $startMs = microtime(true);
         $lastAttempt = null;
+        $selectedAny = false;
 
         /* 分组：令牌组（支持 auto 自动分组）优先，其次用户分组 */
         $groups = Group::resolveTokenGroups($token, $userGroup);
@@ -109,6 +110,7 @@ class Relay
             if ($channel === false) {
                 break;
             }
+            $selectedAny = true;
             $lastSelectedGroup = $selectedGroup;
             $excludeIds[] = (int)$channel['id'];
             $channelFormat = ChannelType::format(isset($channel['type']) ? $channel['type'] : 'openai');
@@ -131,15 +133,19 @@ class Relay
                 return null;
             }
             Channel::incrementFail((int)$channel['id']);
-            self::maybeAutoDisable((int)$channel['id']);
+            self::maybeAutoDisable((int)$channel['id'], isset($result['http_code']) ? $result['http_code'] : null, isset($result['error']) ? $result['error'] : null);
             $lastAttempt = $result;
             if (!$result['retryable']) {
+                break;
+            }
+            $httpCode = (int)($result['http_code'] ?? 0);
+            if ($httpCode >= 400 && !self::isRetryableStatus($httpCode)) {
                 break;
             }
         }
 
         $duration = (int)round((microtime(true) - $startMs) * 1000);
-        if ($attempt === 0) {
+        if (!$selectedAny) {
             $errorMsg = '无可用的渠道（当前分组下无匹配渠道）';
             self::settle($user, $token, null, $model, $apiType, 0, 0, 0, $duration, false, $errorMsg, $rawBody, $estimatedCost);
             return self::openaiError('该模型当前无可用的渠道，请检查渠道分组与模型配置', 'insufficient_quota', 'no_available_channel', 404);
@@ -148,7 +154,8 @@ class Relay
         if ($lastAttempt !== null && !empty($lastAttempt['error'])) {
             $errorMsg .= '：' . $lastAttempt['error'];
         }
-        self::settle($user, $token, isset($channel) ? $channel : null, $model, $apiType, 0, 0, 0, $duration, false, $errorMsg, $rawBody, $estimatedCost);
+        $lastChannel = $lastAttempt !== null && isset($channel) ? $channel : null;
+        self::settle($user, $token, $lastChannel, $model, $apiType, 0, 0, 0, $duration, false, $errorMsg, $rawBody, $estimatedCost);
         if ($lastAttempt !== null && !empty($lastAttempt['body'])) {
             $upstreamBody = $lastAttempt['body'];
             $decoded = json_decode($upstreamBody, true);
@@ -461,10 +468,33 @@ class Relay
         return null;
     }
 
-    private static function maybeAutoDisable($channelId)
+    private static function maybeAutoDisable($channelId, $httpCode = null, $errorMsg = null)
     {
         if (!setting('auto_disable', config('relay.auto_disable', false))) {
             return;
+        }
+        /* 命中「立即停用」状态码或关键词则立刻停用，不等待阈值 */
+        if ($httpCode !== null) {
+            $codes = setting('auto_disable_status_codes', '');
+            if ($codes !== '' && self::statusInList($httpCode, $codes)) {
+                Channel::update($channelId, ['status' => 0]);
+                write_log("channel #{$channelId} auto disabled (http {$httpCode} in status list)");
+                return;
+            }
+        }
+        if ($errorMsg !== null && $errorMsg !== '') {
+            $keywords = setting('auto_disable_keywords', '');
+            if ($keywords !== '') {
+                $lower = mb_strtolower($errorMsg);
+                foreach (explode(',', str_replace('，', ',', $keywords)) as $kw) {
+                    $kw = trim($kw);
+                    if ($kw !== '' && mb_strpos($lower, mb_strtolower($kw)) !== false) {
+                        Channel::update($channelId, ['status' => 0]);
+                        write_log("channel #{$channelId} auto disabled (keyword \"{$kw}\")");
+                        return;
+                    }
+                }
+            }
         }
         $threshold = max(1, (int)setting('auto_disable_threshold', config('relay.auto_disable_threshold', 100)));
         $channel = Channel::getById($channelId);
@@ -472,6 +502,43 @@ class Relay
             Channel::update($channelId, ['status' => 0]);
             write_log("channel #{$channelId} auto disabled (fail_count={$channel['fail_count']})");
         }
+    }
+
+    /**
+     * 判断 HTTP 状态码是否命中「可重试」列表；列表为空时默认 500-599 可重试
+     */
+    private static function isRetryableStatus($httpCode)
+    {
+        $list = trim(setting('retry_status_codes', ''));
+        if ($list === '') {
+            return $httpCode >= 500 && $httpCode <= 599;
+        }
+        return self::statusInList($httpCode, $list);
+    }
+
+    /**
+     * 判断状态码是否命中逗号分隔的列表（支持区间，如 500,502-504,529）
+     */
+    private static function statusInList($code, $list)
+    {
+        $code = (int)$code;
+        foreach (explode(',', str_replace('，', ',', $list)) as $item) {
+            $item = trim($item);
+            if ($item === '') {
+                continue;
+            }
+            if (strpos($item, '-') !== false) {
+                $parts = explode('-', $item);
+                $lo = (int)trim($parts[0]);
+                $hi = (int)trim(isset($parts[1]) ? $parts[1] : $parts[0]);
+                if ($code >= $lo && $code <= $hi) {
+                    return true;
+                }
+            } elseif ($code === (int)$item) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function openaiError($message, $type, $code, $httpCode = 400, $retryAfter = 0)

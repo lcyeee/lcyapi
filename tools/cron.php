@@ -54,6 +54,20 @@ function task_expire_sessions(&$result)
     $result .= "清理 {$days} 天前未活动会话 {$deleted} 条；";
 }
 
+function task_channel_health(&$result)
+{
+    $channels = DB::fetchAll('SELECT id, name, status FROM channels WHERE status = 1');
+    $failed = 0;
+    foreach ($channels as $channel) {
+        $test = Channel::test((int)$channel['id']);
+        if (!$test['ok']) {
+            $failed++;
+            write_log("channel health check failed: #{$channel['id']} {$channel['name']} - {$test['message']}", 'task');
+        }
+    }
+    $result .= "渠道健康检查：共 " . count($channels) . " 个启用渠道，失败 {$failed} 个；";
+}
+
 $tasks = DB::fetchAll('SELECT * FROM system_tasks WHERE status = 1 ORDER BY id ASC');
 foreach ($tasks as $task) {
     $due = false;

@@ -71,13 +71,13 @@ $affLink = base_url('user/register.php?aff=' . urlencode($user['aff_code'] ?: ''
             </div>
         </div>
     <?php endif; ?>
-    <?php if ($affEnabled) : ?>
+    <?php if ($affEnabled && setting('self_use_mode', '0') !== '1') : ?>
         <div class="card">
             <div class="card-title"><?php echo svg_icon('gift'); ?>邀请奖励</div>
             <div class="detail-list" style="margin-bottom:12px;">
                 <div class="item"><div class="k">已邀请</div><div class="v"><?php echo $invitedCount; ?> 人</div></div>
-                <div class="item"><div class="k">待转入收益</div><div class="v">$<?php echo e(number_format((float)$user['aff_quota'], 4)); ?></div></div>
-                <div class="item"><div class="k">累计收益</div><div class="v">$<?php echo e(number_format((float)$user['aff_history_quota'], 4)); ?></div></div>
+                <div class="item"><div class="k">待转入收益</div><div class="v"><?php echo e(quota_display($user['aff_quota'])); ?></div></div>
+                <div class="item"><div class="k">累计收益</div><div class="v"><?php echo e(quota_display($user['aff_history_quota'])); ?></div></div>
             </div>
             <div class="form-group">
                 <label>我的邀请链接</label>
@@ -105,6 +105,8 @@ $affLink = base_url('user/register.php?aff=' . urlencode($user['aff_code'] ?: ''
 $epayEnabled = setting('epay_enabled', '0') === '1';
 $stripeEnabled = setting('stripe_enabled', '0') === '1';
 $payRatio = (float)setting('pay_ratio', '1');
+$topupAmounts = setting('topup_amounts', '5,10,20,50,100');
+$topupDiscount = (float)setting('topup_discount', '1');
 $payOrders = DB::fetchAll('SELECT * FROM pay_orders WHERE user_id = ? ORDER BY id DESC LIMIT 10', [Auth::id()]);
 ?>
 
@@ -114,12 +116,17 @@ $payOrders = DB::fetchAll('SELECT * FROM pay_orders WHERE user_id = ? ORDER BY i
     <div class="form-group">
         <label>充值金额（$）</label>
         <div class="amount-quick" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-            <?php foreach ([5, 10, 20, 50, 100] as $preset) : ?>
-                <button type="button" class="btn btn-sm btn-secondary" data-amount="<?php echo $preset; ?>">$<?php echo $preset; ?></button>
+            <?php foreach (array_filter(array_map('trim', explode(',', $topupAmounts))) as $preset) : if ((float)$preset <= 0) continue; ?>
+                <button type="button" class="btn btn-sm btn-secondary" data-amount="<?php echo (float)$preset; ?>">$<?php echo (float)$preset; ?></button>
             <?php endforeach; ?>
+            <?php if (trim($topupAmounts) === '') : ?>
+                <?php foreach ([5, 10, 20, 50, 100] as $preset) : ?>
+                    <button type="button" class="btn btn-sm btn-secondary" data-amount="<?php echo $preset; ?>">$<?php echo $preset; ?></button>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
-        <input type="number" name="pay_amount" id="payAmount" step="1" min="1" class="form-control" placeholder="输入金额（整数美元）">
-        <div class="form-hint">到账额度 = 金额 × 充值倍率（当前 <?php echo $payRatio; ?>）</div>
+        <input type="number" name="pay_amount" id="payAmount" step="0.01" min="0.01" class="form-control" placeholder="输入金额（美元）">
+        <div class="form-hint">到账额度 = 金额 × 充值倍率（<?php echo $payRatio; ?>）<?php if ($topupDiscount < 1) : ?> × 折扣率（<?php echo $topupDiscount; ?>，当前活动价）<?php endif; ?></div>
     </div>
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <?php if ($epayEnabled) : ?>

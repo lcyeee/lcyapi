@@ -12,7 +12,8 @@ class PayOrder
             return ['ok' => false, 'msg' => '充值金额需大于 0'];
         }
         $ratio = (float)setting('pay_ratio', '1');
-        $quota = round($amount * $ratio, 6);
+        $discount = max(0.1, min(1, (float)setting('topup_discount', '1')));
+        $quota = round($amount * $ratio * $discount, 6);
         $orderNo = date('YmdHis') . random_string(8);
         $id = DB::insert('pay_orders', [
             'order_no' => $orderNo,

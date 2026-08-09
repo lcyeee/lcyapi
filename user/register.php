@@ -65,7 +65,7 @@ $pageTitle = '注册';
                 <input type="password" name="password" class="form-control" required minlength="6" maxlength="64">
                 <div class="form-hint">至少 6 位</div>
             </div>
-            <?php if (setting('aff_enabled', '0') === '1') : ?>
+            <?php if (setting('aff_enabled', '0') === '1' && setting('self_use_mode', '0') !== '1') : ?>
                 <div class="form-group">
                     <label>邀请码（选填）</label>
                     <input type="text" name="aff" class="form-control" value="<?php echo e($affCode); ?>" placeholder="有邀请码可填写">

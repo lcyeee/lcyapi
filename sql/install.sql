@@ -317,7 +317,8 @@ INSERT INTO system_tasks (name, type, status, `interval`) VALUES
 ('清理已用验证码', 'clean_verifications', 1, 86400),
 ('关闭超时支付订单', 'close_expired_orders', 1, 1800),
 ('过期订阅标记', 'expire_subscriptions', 1, 3600),
-('清理过期会话', 'expire_sessions', 1, 86400);
+('清理过期会话', 'expire_sessions', 1, 86400),
+('渠道健康检查', 'auto_health', 1, 3600);
 
 CREATE TABLE IF NOT EXISTS system_instances (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

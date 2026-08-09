@@ -55,6 +55,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stripeSecretKey = mb_substr(trim($_POST['stripe_secret_key'] ?? ''), 0, 200);
     $stripePublishableKey = mb_substr(trim($_POST['stripe_publishable_key'] ?? ''), 0, 200);
     $stripeWebhookSecret = mb_substr(trim($_POST['stripe_webhook_secret'] ?? ''), 0, 200);
+    $quotaDisplayType = in_array($_POST['quota_display_type'] ?? 'USD', ['USD', 'CNY', 'TOKENS', 'CUSTOM'], true) ? $_POST['quota_display_type'] : 'USD';
+    $customSymbol = mb_substr(trim($_POST['custom_currency_symbol'] ?? ''), 0, 20);
+    $customRate = max(0.0001, (float)($_POST['custom_currency_rate'] ?? 1));
+    $maxUserTokens = max(0, (int)($_POST['max_user_tokens'] ?? 0));
+    $topupAmounts = implode(',', array_filter(array_map(function ($v) {
+        $n = (float)$v;
+        return $n > 0 ? rtrim(rtrim(number_format($n, 2, '.', ''), '0'), '.') : '';
+    }, explode(',', str_replace(array('，', ' ', "\n"), ',', trim($_POST['topup_amounts'] ?? '')))), function ($v) { return $v !== ''; }));
+    $topupDiscount = max(0.1, min(1, (float)($_POST['topup_discount'] ?? 1)));
+    $selfUseMode = empty($_POST['self_use_mode']) ? '0' : '1';
+    $faqEnabled = empty($_POST['faq_enabled']) ? '0' : '1';
+    $faqContent = mb_substr(trim($_POST['faq_content'] ?? ''), 0, 20000);
+    $autoDisableStatusCodes = mb_substr(trim($_POST['auto_disable_status_codes'] ?? ''), 0, 200);
+    $autoDisableKeywords = mb_substr(trim($_POST['auto_disable_keywords'] ?? ''), 0, 500);
+    $retryStatusCodes = mb_substr(trim($_POST['retry_status_codes'] ?? ''), 0, 200);
 
     if ($name === '') {
         session_flash('flash_error', '站点名称不能为空');
@@ -114,6 +129,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($stripeWebhookSecret !== '') {
         setting_set('stripe_webhook_secret', $stripeWebhookSecret);
     }
+    setting_set('quota_display_type', $quotaDisplayType);
+    setting_set('custom_currency_symbol', $customSymbol);
+    setting_set('custom_currency_rate', (string)$customRate);
+    setting_set('max_user_tokens', (string)$maxUserTokens);
+    setting_set('topup_amounts', $topupAmounts);
+    setting_set('topup_discount', (string)$topupDiscount);
+    setting_set('self_use_mode', $selfUseMode);
+    setting_set('faq_enabled', $faqEnabled);
+    setting_set('faq_content', $faqContent);
+    setting_set('auto_disable_status_codes', $autoDisableStatusCodes);
+    setting_set('auto_disable_keywords', $autoDisableKeywords);
+    setting_set('retry_status_codes', $retryStatusCodes);
 
     audit_log('settings_save', null, '系统设置已更新');
 
@@ -169,6 +196,18 @@ $stripeEnabled = isset($s['stripe_enabled']) ? $s['stripe_enabled'] : '0';
 $stripeSecretKey = isset($s['stripe_secret_key']) ? $s['stripe_secret_key'] : '';
 $stripePublishableKey = isset($s['stripe_publishable_key']) ? $s['stripe_publishable_key'] : '';
 $stripeWebhookSecret = isset($s['stripe_webhook_secret']) ? $s['stripe_webhook_secret'] : '';
+$quotaDisplayType = isset($s['quota_display_type']) ? $s['quota_display_type'] : 'USD';
+$customSymbol = isset($s['custom_currency_symbol']) ? $s['custom_currency_symbol'] : '';
+$customRate = isset($s['custom_currency_rate']) ? $s['custom_currency_rate'] : '1';
+$maxUserTokens = isset($s['max_user_tokens']) ? $s['max_user_tokens'] : '0';
+$topupAmounts = isset($s['topup_amounts']) ? $s['topup_amounts'] : '5,10,20,50,100';
+$topupDiscount = isset($s['topup_discount']) ? $s['topup_discount'] : '1';
+$selfUseMode = isset($s['self_use_mode']) ? $s['self_use_mode'] : '0';
+$faqEnabled = isset($s['faq_enabled']) ? $s['faq_enabled'] : '0';
+$faqContent = isset($s['faq_content']) ? $s['faq_content'] : '';
+$autoDisableStatusCodes = isset($s['auto_disable_status_codes']) ? $s['auto_disable_status_codes'] : '';
+$autoDisableKeywords = isset($s['auto_disable_keywords']) ? $s['auto_disable_keywords'] : '';
+$retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] : '';
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
@@ -226,10 +265,40 @@ $stripeWebhookSecret = isset($s['stripe_webhook_secret']) ? $s['stripe_webhook_s
             <label>余额告警阈值（$，用户余额低于此值时前台提示，0=关闭）</label>
             <input type="number" name="quota_remind_threshold" step="0.0001" min="0" class="form-control" value="<?php echo e($quotaRemindThreshold); ?>">
         </div>
-        <div class="form-group">
+<div class="form-group">
             <label>系统公告（留空不展示，前台顶部显示）</label>
             <textarea name="notice" class="form-control" rows="3" placeholder="例如：本站已升级，新增 XX 模型……"><?php echo e($notice); ?></textarea>
         </div>
+    </div>
+
+    <div class="card" style="max-width:720px;">
+        <div class="card-title">额度显示</div>
+        <div class="form-group">
+            <label>额度展示类型</label>
+            <select name="quota_display_type" class="form-control">
+                <option value="USD" <?php echo $quotaDisplayType === 'USD' ? 'selected' : ''; ?>>美元 $</option>
+                <option value="CNY" <?php echo $quotaDisplayType === 'CNY' ? 'selected' : ''; ?>>人民币 ¥（按汇率换算显示）</option>
+                <option value="TOKENS" <?php echo $quotaDisplayType === 'TOKENS' ? 'selected' : ''; ?>>积分（按汇率换算显示）</option>
+                <option value="CUSTOM" <?php echo $quotaDisplayType === 'CUSTOM' ? 'selected' : ''; ?>>自定义符号</option>
+            </select>
+            <div class="form-hint">库内仍以美元结算，仅影响界面显示；余额展示 = 美元值 × 汇率</div>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>自定义符号（CUSTOM 时使用，如 ¥、积分）</label>
+                <input type="text" name="custom_currency_symbol" class="form-control" value="<?php echo e($customSymbol); ?>">
+            </div>
+            <div style="flex:1;">
+                <label>汇率（1 USD = ? 单位）</label>
+                <input type="number" name="custom_currency_rate" step="0.0001" min="0.0001" class="form-control" value="<?php echo e($customRate); ?>">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>单用户令牌数上限（0 = 不限制）</label>
+            <input type="number" name="max_user_tokens" min="0" class="form-control" value="<?php echo e($maxUserTokens); ?>">
+            <div class="form-hint">用户个人中心创建令牌时的数量上限，防止滥用。</div>
+        </div>
+    </div>
     </div>
 
     <div class="card" style="max-width:720px;">
@@ -273,6 +342,20 @@ $stripeWebhookSecret = isset($s['stripe_webhook_secret']) ? $s['stripe_webhook_s
         <div class="form-group">
             <label>自动停用阈值（失败次数）</label>
             <input type="number" name="auto_disable_threshold" min="1" class="form-control" value="<?php echo e($autoDisableThreshold); ?>">
+        </div>
+        <div class="form-group">
+            <label>可重试状态码（留空默认 500-599 可重试，支持区间如 500,502-504,529）</label>
+            <input type="text" name="retry_status_codes" class="form-control" value="<?php echo e($retryStatusCodes); ?>" placeholder="502,503,504,529">
+            <div class="form-hint">命中列表内的上游状态码才触发重试与下一个渠道，业务 4xx 一律不重试。</div>
+        </div>
+        <div class="form-group">
+            <label>立即停用状态码（命中即停用该渠道，支持区间，留空仅按失败阈值）</label>
+            <input type="text" name="auto_disable_status_codes" class="form-control" value="<?php echo e($autoDisableStatusCodes); ?>" placeholder="429,401">
+            <div class="form-hint">如上游返回 401 密钥失效，渠道立即停用等人工处理。</div>
+        </div>
+        <div class="form-group">
+            <label>立即停用错误关键词（逗号分隔，命中上游错误文本即停用）</label>
+            <input type="text" name="auto_disable_keywords" class="form-control" value="<?php echo e($autoDisableKeywords); ?>" placeholder="invalid api key,insufficient quota">
         </div>
     </div>
 
@@ -421,6 +504,17 @@ $stripeWebhookSecret = isset($s['stripe_webhook_secret']) ? $s['stripe_webhook_s
             <label>充值倍率（到账额度 = 支付金额 × 倍率）</label>
             <input type="number" name="pay_ratio" step="0.01" min="0" class="form-control" value="<?php echo e($payRatio); ?>">
         </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>快速充值档位（逗号分隔，留空则不显示档位）</label>
+                <input type="text" name="topup_amounts" class="form-control" value="<?php echo e($topupAmounts); ?>" placeholder="5,10,20,50,100">
+            </div>
+            <div style="flex:1;">
+                <label>首充/活动折扣（0-1，1 无折扣，0.9 即 9 折）</label>
+                <input type="number" name="topup_discount" step="0.01" min="0.1" max="1" class="form-control" value="<?php echo e($topupDiscount); ?>">
+                <div class="form-hint">到账额度 = 支付金额 × 倍率 × 折扣</div>
+            </div>
+        </div>
         <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
         <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
             <label style="margin:0;">启用易支付</label>
@@ -459,6 +553,23 @@ $stripeWebhookSecret = isset($s['stripe_webhook_secret']) ? $s['stripe_webhook_s
             <label>Stripe Webhook 密钥（whsec_…，留空则不启用 Webhook）</label>
             <input type="text" name="stripe_webhook_secret" class="form-control" value="<?php echo e($stripeWebhookSecret); ?>">
             <div class="form-hint">Webhook 地址：<?php echo e(base_url('api/pay/stripe_webhook.php')); ?></div>
+        </div>
+    </div>
+
+    <div class="card" style="max-width:720px;">
+        <div class="card-title">站点模式与 FAQ</div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">自用模式（隐藏「邀请」「兑换」「价格页」入口，仅本机/好友使用）</label>
+            <label class="ios-switch"><input type="checkbox" name="self_use_mode" value="1" <?php echo $selfUseMode === '1' ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">前台展示常见问题（FAQ）</label>
+            <label class="ios-switch"><input type="checkbox" name="faq_enabled" value="1" <?php echo $faqEnabled === '1' ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group">
+            <label>FAQ 内容（每行一条：问题|答案）</label>
+            <textarea name="faq_content" class="form-control" rows="8" placeholder="如何充值？|个人中心-钱包-选择档位或输入金额，选择支付方式完成支付。&#10;API Key 在哪里获取？|个人中心-令牌-新建令牌，复制 sk- 开头的密钥。"><?php echo e($faqContent); ?></textarea>
+            <div class="form-hint">显示在用户中心首页底部，用 | 分隔问题和答案，每行一条。</div>
         </div>
     </div>
 

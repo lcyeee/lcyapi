@@ -24,18 +24,18 @@ for ($i = 6; $i >= 0; $i--) {
 <div class="stat-grid">
     <div class="stat-card">
         <div class="label">账户余额</div>
-        <div class="value">$<?php echo e(number_format((float)$user['quota'], 4)); ?></div>
-        <div class="sub">累计充值 $<?php echo e(number_format((float)$user['total_quota'], 4)); ?></div>
+        <div class="value"><?php echo e(quota_display($user['quota'])); ?></div>
+        <div class="sub">累计充值 <?php echo e(quota_display($user['total_quota'])); ?></div>
     </div>
     <div class="stat-card">
         <div class="label">今日消费</div>
-        <div class="value">$<?php echo e(number_format($todayCost, 4)); ?></div>
+        <div class="value"><?php echo e(quota_display($todayCost)); ?></div>
         <div class="sub">今日调用 <?php echo $todayCount; ?> 次</div>
     </div>
     <div class="stat-card">
         <div class="label">总调用次数</div>
         <div class="value"><?php echo number_format((int)$user['api_count']); ?></div>
-        <div class="sub">已用额度 $<?php echo e(number_format((float)$user['used_quota'], 4)); ?></div>
+        <div class="sub">已用额度 <?php echo e(quota_display($user['used_quota'])); ?></div>
     </div>
     <div class="stat-card">
         <div class="label">有效令牌</div>
@@ -55,11 +55,34 @@ for ($i = 6; $i >= 0; $i--) {
     <div class="card-title">快捷入口</div>
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <a class="btn" href="<?php echo base_url('user/tokens/create.php'); ?>">创建令牌</a>
-        <a class="btn btn-success" href="<?php echo base_url('user/redeem/index.php'); ?>">兑换码充值</a>
+        <?php if (setting('self_use_mode', '0') !== '1') : ?>
+            <a class="btn btn-success" href="<?php echo base_url('user/redeem/index.php'); ?>">兑换码充值</a>
+        <?php endif; ?>
         <a class="btn btn-secondary" href="<?php echo base_url('user/logs/index.php'); ?>">查看使用记录</a>
         <a class="btn btn-warning" href="<?php echo base_url('user/profile/password.php'); ?>">修改密码</a>
     </div>
 </div>
+
+<?php if (setting('faq_enabled', '0') === '1') : ?>
+    <?php
+    $faqLines = array_filter(array_map('trim', explode("\n", str_replace("\r", '', setting('faq_content', '')))));
+    if (count($faqLines) > 0) : ?>
+        <div class="card">
+            <div class="card-title">常见问题</div>
+            <div class="detail-list">
+                <?php foreach ($faqLines as $line) : ?>
+                    <?php $parts = explode('|', $line, 2); ?>
+                    <?php if (count($parts) === 2 && trim($parts[0]) !== '') : ?>
+                        <div class="item">
+                            <div class="k"><?php echo e(trim($parts[0])); ?></div>
+                            <div class="v"><?php echo e(trim($parts[1])); ?></div>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
 
 <script src="<?php echo base_url('assets/js/chart.umd.min.js'); ?>"></script>
 <script>

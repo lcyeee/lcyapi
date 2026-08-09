@@ -6,6 +6,7 @@ Auth::requireLogin();
 $pageTitle = isset($pageTitle) ? $pageTitle : '个人中心';
 $user = Auth::user();
 $requestPath = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
+$selfUse = setting('self_use_mode', '0') === '1';
 function nav_active($needle, $requestPath)
 {
     return strpos($requestPath, $needle) !== false ? 'active' : '';
@@ -33,14 +34,16 @@ function nav_active($needle, $requestPath)
             <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?>令牌管理</a>
             <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
             <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
-            <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
+            <?php if (!$selfUse) : ?>
+                <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
+            <?php endif; ?>
             <?php if (Auth::isAdmin()) : ?>
                 <a class="admin-entry" href="<?php echo base_url('admin/index.php'); ?>"><?php echo svg_icon('shield'); ?>后台</a>
             <?php endif; ?>
         </nav>
         <div class="user-menu">
             <span class="uname"><?php echo e($user['nickname'] ?: $user['username']); ?></span>
-            <span class="badge badge-blue">$<?php echo e(number_format((float)$user['quota'], 4)); ?></span>
+            <span class="badge badge-blue"><?php echo e(quota_display($user['quota'])); ?></span>
             <button type="button" class="icon-btn" data-theme-toggle title="切换明暗模式"><?php echo svg_icon('moon'); ?></button>
             <a href="<?php echo base_url('user/logout.php'); ?>" class="btn btn-sm btn-secondary"><?php echo svg_icon('logout'); ?>退出</a>
         </div>
@@ -57,10 +60,14 @@ function nav_active($needle, $requestPath)
                     <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?>令牌管理</a>
                     <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
                     <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
-            <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码充值</a>
+            <?php if (!$selfUse) : ?>
+                    <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码充值</a>
+            <?php endif; ?>
             <a class="<?php echo nav_active('/user/subscriptions/', $requestPath); ?>" href="<?php echo base_url('user/subscriptions/index.php'); ?>"><?php echo svg_icon('crown'); ?>订阅套餐</a>
             <a class="<?php echo nav_active('/user/playground/', $requestPath); ?>" href="<?php echo base_url('user/playground/index.php'); ?>"><?php echo svg_icon('message'); ?>Playground 测试</a>
-                    <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
+                    <?php if (!$selfUse) : ?>
+                        <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
+                    <?php endif; ?>
                     <a class="<?php echo nav_active('/user/appearance/', $requestPath); ?>" href="<?php echo base_url('user/appearance/index.php'); ?>"><?php echo svg_icon('eye'); ?>外观主题</a>
                 </div>
             </aside>
@@ -81,7 +88,7 @@ function nav_active($needle, $requestPath)
                 <?php endif; ?>
                 <?php $quotaThreshold = (float)setting('quota_remind_threshold', '0'); ?>
                 <?php if ($quotaThreshold > 0 && (float)$user['quota'] < $quotaThreshold) : ?>
-                    <div class="alert alert-warning"><?php echo svg_icon('alert'); ?>您的余额已低于 $<?php echo e(number_format($quotaThreshold, 4)); ?>，请及时充值以免影响使用。</div>
+                    <div class="alert alert-warning"><?php echo svg_icon('alert'); ?>您的余额已低于 <?php echo e(quota_display($quotaThreshold)); ?>，请及时充值以免影响使用。</div>
                 <?php endif; ?>
                 <script>
                     /* 表格自动包裹横向滚动容器（移动端防重叠） */
