@@ -54,6 +54,12 @@ function task_expire_sessions(&$result)
     $result .= "清理 {$days} 天前未活动会话 {$deleted} 条；";
 }
 
+function task_clean_expired_tokens(&$result)
+{
+    $deleted = DB::query('DELETE FROM tokens WHERE expired_at IS NOT NULL AND expired_at < NOW()')->rowCount();
+    $result .= "清理过期令牌 {$deleted} 个；";
+}
+
 function task_auto_health(&$result)
 {
     $channels = DB::fetchAll('SELECT * FROM channels WHERE status = 1');

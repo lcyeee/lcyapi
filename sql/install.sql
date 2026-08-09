@@ -332,7 +332,8 @@ INSERT INTO system_tasks (name, type, status, `interval`) VALUES
 ('过期订阅标记', 'expire_subscriptions', 1, 3600),
 ('清理过期会话', 'expire_sessions', 1, 86400),
 ('渠道健康检查', 'auto_health', 1, 3600),
-('上游模型自动同步', 'sync_upstream_models', 1, 86400);
+('上游模型自动同步', 'sync_upstream_models', 1, 86400),
+('清理过期令牌', 'clean_expired_tokens', 1, 86400);
 
 CREATE TABLE IF NOT EXISTS system_instances (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

@@ -16,12 +16,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect(base_url('admin/users/index.php'));
     }
     if ($action === 'toggle') {
+        $toDisable = (int)$user['status'] === 1;
         if ((int)$id === Auth::id() && $user['role'] === 'admin') {
             session_flash('flash_error', '不能停用自己的账号');
         } else {
+            if ($toDisable) {
+                DB::delete('user_sessions', 'user_id = ?', [$id]);
+            }
             User::update($id, ['status' => $user['status'] ? 0 : 1]);
-            session_flash('flash_success', '用户状态已更新');
-            audit_log('user_toggle', "#{$id}", $user['username']);
+            session_flash('flash_success', '用户状态已更新' . ($toDisable ? '，已强制下线' : ''));
+            audit_log('user_toggle', "#{$id}", $user['username'] . ($toDisable ? '（封禁，清退会话）' : ''));
         }
     } elseif ($action === 'promote') {
         if ((int)$id === Auth::id()) {
