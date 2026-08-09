@@ -27,10 +27,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'used_at' => date('Y-m-d H:i:s'),
                         'used_ip' => client_ip(),
                     ], 'id = ?', [(int)$redemption['id']]);
-                    $ok = User::addQuota(Auth::id(), (float)$redemption['quota'], 'redeem', '兑换码：' . $code, null, (int)$redemption['id']);
+                    $quotaBase = (float)$redemption['quota'];
+                    $userRow = User::find(Auth::id());
+                    $userGrp = $userRow !== false && isset($userRow['group']) ? (string)$userRow['group'] : 'default';
+                    $but = $quotaBase * Group::topupRatio($userGrp);
+                    $ok = User::addQuota(Auth::id(), $but, 'redeem', '兑换码：' . $code . (abs($but - $quotaBase) > 1e-9 ? '（组倍率 ' . Group::topupRatio($userGrp) . '）' : ''), null, (int)$redemption['id']);
                     DB::commit();
                     if ($ok) {
-                        $result = ['ok' => true, 'msg' => '兑换成功，已充值 $' . number_format((float)$redemption['quota'], 4)];
+                        $result = ['ok' => true, 'msg' => '兑换成功，已充值 $' . number_format($but, 4) . (abs($but - $quotaBase) > 1e-9 ? '（面值 $' . number_format($quotaBase, 4) . ' × 分组倍率 ' . Group::topupRatio($userGrp) . '）' : '')];
                     } else {
                         $result = ['ok' => false, 'msg' => '充值失败，请稍后重试'];
                     }

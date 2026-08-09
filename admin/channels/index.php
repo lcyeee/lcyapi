@@ -58,6 +58,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_flash('flash_success', '已' . ($status ? '启用' : '停用') . ' ' . count($ids) . ' 个渠道');
             audit_log('channel_batch_' . ($status ? 'enable' : 'disable'), null, 'ids=' . $in);
         }
+    } elseif ($action === 'batch_delete') {
+        if (empty($ids)) {
+            session_flash('flash_error', '请先勾选渠道');
+        } else {
+            foreach ($ids as $cid) {
+                Channel::delete((int)$cid);
+            }
+            session_flash('flash_success', '已删除 ' . count($ids) . ' 个渠道');
+            audit_log('channel_batch_delete', null, 'ids=' . implode(',', $ids));
+        }
     } elseif ($action === 'test') {
         $result = Channel::test($id);
         if (!empty($result['ok'])) {
@@ -75,18 +85,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect(base_url('admin/channels/index.php'));
 }
 
-$channels = Channel::all();
+$filterType = isset($_GET['type']) && $_GET['type'] !== '' ? $_GET['type'] : '';
+$filterStatus = isset($_GET['status']) && $_GET['status'] !== '' ? (int)$_GET['status'] : null;
+$filterGroup = isset($_GET['group']) && trim($_GET['group']) !== '' ? trim($_GET['group']) : '';
+$sql = 'SELECT * FROM channels WHERE 1=1';
+$params = [];
+if ($filterType !== '') {
+    $sql .= ' AND type = ?';
+    $params[] = $filterType;
+}
+if ($filterStatus !== null) {
+    $sql .= ' AND status = ?';
+    $params[] = $filterStatus;
+}
+if ($filterGroup !== '') {
+    $sql .= ' AND (group = "" OR CONCAT(",", REPLACE(`group`,", ",""), ",") LIKE ?)';
+    $params[] = '%,' . $filterGroup . ',%';
+}
+$sql .= ' ORDER BY priority DESC, id ASC';
+$channels = DB::fetchAll($sql, $params);
+$groupOptions = Group::allGroups();
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap;">
-    <form method="post" id="batchForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
-        <input type="hidden" name="action" id="batchAction" value="">
-        <button type="button" class="btn btn-sm btn-success" onclick="submitBatch('batch_enable')"><?php echo svg_icon('check'); ?>批量启用</button>
-        <button type="button" class="btn btn-sm btn-warning" onclick="submitBatch('batch_disable')">批量停用</button>
-        <span class="form-hint" style="margin:0;">勾选表格左侧复选框后操作</span>
-    </form>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <form method="get" id="filterForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select name="type" class="form-control" style="width:120px; height:32px;" onchange="this.form.submit()">
+                <option value="">全部类型</option>
+                <option value="openai" <?php echo $filterType === 'openai' ? 'selected' : ''; ?>>OpenAI</option>
+                <option value="azure" <?php echo $filterType === 'azure' ? 'selected' : ''; ?>>Azure</option>
+                <option value="custom" <?php echo $filterType === 'custom' ? 'selected' : ''; ?>>自定义</option>
+            </select>
+            <select name="status" class="form-control" style="width:120px; height:32px;" onchange="this.form.submit()">
+                <option value="">全部状态</option>
+                <option value="1" <?php echo $filterStatus === 1 ? 'selected' : ''; ?>>启用</option>
+                <option value="0" <?php echo $filterStatus === 0 ? 'selected' : ''; ?>>停用</option>
+            </select>
+            <select name="group" class="form-control" style="width:130px; height:32px;" onchange="this.form.submit()">
+                <option value="">全部分组</option>
+                <?php foreach ($groupOptions as $gname) : ?>
+                    <option value="<?php echo e($gname); ?>" <?php echo $filterGroup === $gname ? 'selected' : ''; ?>><?php echo e($gname); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <?php if ($filterType !== '' || $filterStatus !== null || $filterGroup !== '') : ?>
+                <a class="btn btn-sm btn-secondary" href="<?php echo base_url('admin/channels/index.php'); ?>">清空筛选</a>
+            <?php endif; ?>
+        </form>
+        <form method="post" id="batchForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+            <input type="hidden" name="action" id="batchAction" value="">
+            <button type="button" class="btn btn-sm btn-success" onclick="submitBatch('batch_enable')"><?php echo svg_icon('check'); ?>批量启用</button>
+            <button type="button" class="btn btn-sm btn-warning" onclick="submitBatch('batch_disable')">批量停用</button>
+            <button type="button" class="btn btn-sm btn-danger" onclick="submitBatch('batch_delete')">批量删除</button>
+            <span class="form-hint" style="margin:0;">勾选表格左侧复选框后操作</span>
+        </form>
+    </div>
     <a class="btn" href="<?php echo base_url('admin/channels/edit.php'); ?>"><?php echo svg_icon('plus'); ?>新建渠道</a>
 </div>
 
@@ -157,12 +211,13 @@ function submitBatch(action) {
     var ids = [];
     document.querySelectorAll('.ch-row:checked').forEach(function (c) { ids.push(c.value); });
     if (!ids.length) { LcyModal.alert({ title: '批量操作', message: '请先勾选至少一个渠道' }); return; }
-    var enable = action === 'batch_enable';
+    var labels = { batch_enable: ['批量启用渠道', '确定启用已勾选的 ', '启用'], batch_disable: ['批量停用渠道', '确定停用已勾选的 ', '停用'], batch_delete: ['批量删除渠道', '确定删除已勾选的 ', '删除'] };
+    var cfg = labels[action] || ['批量操作', '确定对已勾选的 ', '确定'];
     LcyModal.open({
-        title: enable ? '批量启用渠道' : '批量停用渠道',
-        message: '确定' + (enable ? '启用' : '停用') + '已勾选的 ' + ids.length + ' 个渠道？',
-        confirmText: enable ? '启用' : '停用',
-        danger: !enable,
+        title: cfg[0],
+        message: cfg[1] + ids.length + ' 个渠道？' + (action === 'batch_delete' ? '该操作不可恢复。' : ''),
+        confirmText: cfg[2],
+        danger: action === 'batch_delete',
         onConfirm: function () {
             var form = document.getElementById('batchForm');
             document.getElementById('batchAction').value = action;

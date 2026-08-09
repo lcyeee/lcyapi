@@ -10,8 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $action = isset($_POST['action']) ? $_POST['action'] : '';
     $id = (int)($_POST['id'] ?? 0);
-    $user = User::find($id);
-    if ($user === false) {
+    $user = $id > 0 ? User::find($id) : false;
+    if ($id > 0 && $user === false) {
         session_flash('flash_error', '用户不存在');
         redirect(base_url('admin/users/index.php'));
     }
@@ -71,6 +71,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             session_flash('flash_error', '删除失败');
         }
+    } elseif ($action === 'batch_delete') {
+        $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
+        $ids = array_filter($ids, function ($v) { return $v !== Auth::id(); });
+        if (empty($ids)) {
+            session_flash('flash_error', '请先勾选要删除的用户（不能删除自己）');
+        } else {
+            $deleted = 0;
+            foreach ($ids as $uid) {
+                if (User::delete((int)$uid)) {
+                    $deleted++;
+                }
+            }
+            session_flash('flash_success', '已删除 ' . $deleted . ' 个用户');
+            audit_log('user_batch_delete', null, 'ids=' . implode(',', $ids));
+        }
+    } elseif ($action === 'batch_quota') {
+        $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
+        $delta = (float)($_POST['delta'] ?? 0);
+        if (empty($ids)) {
+            session_flash('flash_error', '请先勾选用户');
+        } elseif ($delta == 0) {
+            session_flash('flash_error', '额度变更数量不能为 0');
+        } else {
+            $okCount = 0;
+            foreach ($ids as $uid) {
+                if ($delta > 0) {
+                    User::addQuota((int)$uid, $delta, 'admin', '批量调整', Auth::id()) ? $okCount++ : 0;
+                } else {
+                    User::deductQuota((int)$uid, abs($delta)) ? $okCount++ : 0;
+                }
+            }
+            session_flash('flash_success', '已为 ' . $okCount . ' 个用户调整额度 ' . ($delta > 0 ? '+' : '') . number_format($delta, 4));
+            audit_log('user_batch_quota', null, 'ids=' . implode(',', $ids) . ' delta=' . $delta);
+        }
     }
     redirect(base_url('admin/users/index.php'));
 }
@@ -93,26 +127,41 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
 <div class="card">
-    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <span>用户列表（共 <?php echo $total; ?> 人）</span>
-        <form method="get" style="display:flex; gap:8px; align-items:center;">
-            <input type="text" name="q" class="form-control" style="width:220px;" value="<?php echo e($keyword); ?>" placeholder="用户名 / 邮箱 / 昵称">
-            <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>搜索</button>
-        </form>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <form method="post" id="batchForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                <input type="hidden" name="action" id="batchAction" value="">
+                <div style="display:flex; gap:4px; align-items:center;">
+                    <label class="form-hint" style="margin:0;">批量调整额度：</label>
+                    <input type="number" name="delta" step="0.0001" class="form-control" style="width:110px; height:32px;" value="0">
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="submitBatch('batch_quota')">批量加/减</button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="submitBatch('batch_delete', true)">批量删除</button>
+                <span class="form-hint" style="margin:0;">勾选用户后操作</span>
+            </form>
+            <form method="get" style="display:flex; gap:8px; align-items:center;">
+                <input type="text" name="q" class="form-control" style="width:220px;" value="<?php echo e($keyword); ?>" placeholder="用户名 / 邮箱 / 昵称">
+                <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>搜索</button>
+            </form>
+        </div>
     </div>
     <table class="table">
         <thead>
             <tr>
+                <th style="width:36px;"><input type="checkbox" id="checkAll" onclick="toggleAll(this)"></th>
                 <th>ID</th><th>用户名</th><th>角色</th><th>分组</th><th>余额</th><th>已用</th>
                 <th>累计充值</th><th>调用次数</th><th>状态</th><th>注册时间</th><th>操作</th>
             </tr>
         </thead>
         <tbody>
         <?php if (empty($users)) : ?>
-            <tr><td colspan="11" class="text-center text-muted">暂无用户</td></tr>
+            <tr><td colspan="12" class="text-center text-muted">暂无用户</td></tr>
         <?php endif; ?>
         <?php foreach ($users as $u) : ?>
             <tr>
+                <td><input type="checkbox" class="us-row" value="<?php echo $u['id']; ?>"></td>
                 <td><?php echo $u['id']; ?></td>
                 <td><?php echo e($u['username']); ?>
                     <?php if ($u['email']) : ?><div class="form-hint"><?php echo e($u['email']); ?></div><?php endif; ?>
@@ -149,7 +198,7 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
                 </td>
             </tr>
             <tr id="ops-<?php echo $u['id']; ?>" style="display:none;">
-                <td colspan="11">
+                <td colspan="12">
                     <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
                         <form method="post" style="display:flex; gap:8px; align-items:flex-end;">
                             <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
@@ -200,6 +249,34 @@ $users = DB::fetchAll('SELECT * FROM users' . $where . ' ORDER BY id DESC LIMIT 
 function toggleRow(id) {
     const el = document.getElementById('ops-' + id);
     el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+function toggleAll(box) {
+    document.querySelectorAll('.us-row').forEach(function (c) { c.checked = box.checked; });
+}
+function submitBatch(action, danger) {
+    var ids = [];
+    document.querySelectorAll('.us-row:checked').forEach(function (c) { ids.push(c.value); });
+    if (!ids.length) { LcyModal.alert({ title: '批量操作', message: '请先勾选至少一个用户' }); return; }
+    var msg = action === 'batch_quota'
+        ? '确定为所选 ' + ids.length + ' 个用户调整额度？'
+        : '确定删除所选 ' + ids.length + ' 个用户？其令牌与数据将被清除，该操作不可恢复。';
+    LcyModal.open({
+        title: action === 'batch_quota' ? '批量调整额度' : '批量删除用户',
+        message: msg,
+        confirmText: action === 'batch_quota' ? '调整' : '删除',
+        danger: !!danger,
+        onConfirm: function () {
+            var form = document.getElementById('batchForm');
+            document.getElementById('batchAction').value = action;
+            form.querySelectorAll('input[name="ids[]"]').forEach(function (h) { h.remove(); });
+            ids.forEach(function (v) {
+                var h = document.createElement('input');
+                h.type = 'hidden'; h.name = 'ids[]'; h.value = v;
+                form.appendChild(h);
+            });
+            form.submit();
+        }
+    });
 }
 </script>
 <?php require dirname(__DIR__) . '/templates/footer.php'; ?>

@@ -14,6 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data = [
             'name' => trim($_POST['name'] ?? ''),
             'display_name' => trim($_POST['display_name'] ?? ''),
+            'description' => mb_substr(trim($_POST['description'] ?? ''), 0, 1000),
+            'tags' => mb_substr(trim($_POST['tags'] ?? ''), 0, 255),
             'input_price' => (float)($_POST['input_price'] ?? 0),
             'output_price' => (float)($_POST['output_price'] ?? 0),
             'context_length' => max(1, (int)($_POST['context_length'] ?? 4096)),
@@ -55,9 +57,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $models = Model::all();
+$keyword = trim($_GET['q'] ?? '');
+if ($keyword !== '') {
+    $kw = $keyword;
+    $models = array_values(array_filter($models, function ($m) use ($kw) {
+        return stripos($m['name'], $kw) !== false
+            || ($m['display_name'] && stripos($m['display_name'], $kw) !== false)
+            || ($m['tags'] && stripos($m['tags'], $kw) !== false);
+    }));
+}
 $editId = (int)($_GET['edit'] ?? 0);
 $edit = $editId > 0 ? Model::getById($editId) : false;
-$m = $edit !== false ? $edit : ['id' => 0, 'name' => '', 'display_name' => '', 'input_price' => 0, 'output_price' => 0, 'context_length' => 4096, 'max_output' => 2048, 'type' => 'chat', 'enabled' => 1, 'sort' => 0];
+$m = $edit !== false ? $edit : ['id' => 0, 'name' => '', 'display_name' => '', 'description' => '', 'tags' => '', 'input_price' => 0, 'output_price' => 0, 'context_length' => 4096, 'max_output' => 2048, 'type' => 'chat', 'enabled' => 1, 'sort' => 0];
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
@@ -112,6 +123,16 @@ $m = $edit !== false ? $edit : ['id' => 0, 'name' => '', 'display_name' => '', '
             <label style="margin:0;">启用模型</label>
             <label class="ios-switch"><input type="checkbox" name="enabled" value="1" <?php echo $m['enabled'] ? 'checked' : ''; ?>><span></span></label>
         </div>
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <div class="form-group" style="flex:1; min-width:220px;">
+                <label>模型描述（前台价格页展示）</label>
+                <input type="text" name="description" class="form-control" value="<?php echo e($m['description']); ?>" placeholder="例如：综合能力强的轻量模型">
+            </div>
+            <div class="form-group" style="flex:1; min-width:180px;">
+                <label>标签（逗号分隔）</label>
+                <input type="text" name="tags" class="form-control" value="<?php echo e($m['tags']); ?>" placeholder="热门,新上">
+            </div>
+        </div>
         <div class="form-actions">
             <button type="submit" class="btn"><?php echo $edit !== false ? '保存修改' : '新增模型'; ?></button>
             <?php if ($edit !== false) : ?><a class="btn btn-secondary" href="<?php echo base_url('admin/models/index.php'); ?>">取消编辑</a><?php endif; ?>
@@ -120,19 +141,25 @@ $m = $edit !== false ? $edit : ['id' => 0, 'name' => '', 'display_name' => '', '
 </div>
 
 <div class="card">
-    <div class="card-title">模型列表（<?php echo count($models); ?>）</div>
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <span>模型列表（<?php echo count($models); ?> 个<?php echo $keyword !== '' ? '，关键词：' . e($keyword) : ''; ?>）</span>
+        <form method="get" style="display:flex; gap:8px; align-items:center;">
+            <input type="text" name="q" class="form-control" style="width:220px;" value="<?php echo e($keyword); ?>" placeholder="模型 / 显示名 / 标签">
+            <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>搜索</button>
+        </form>
+    </div>
     <table class="table">
         <thead>
             <tr><th>ID</th><th>模型</th><th>类型</th><th>输入价</th><th>输出价</th><th>上下文</th><th>最大输出</th><th>状态</th><th>操作</th></tr>
         </thead>
         <tbody>
         <?php if (empty($models)) : ?>
-            <tr><td colspan="9" class="text-center text-muted">暂无模型</td></tr>
+            <tr><td colspan="9" class="text-center text-muted"><?php echo $keyword !== '' ? '没有匹配的模型' : '暂无模型'; ?></td></tr>
         <?php endif; ?>
         <?php foreach ($models as $model) : ?>
             <tr>
                 <td><?php echo $model['id']; ?></td>
-                <td><?php echo e($model['name']); ?><?php if ($model['display_name']) : ?> <span class="badge badge-gray"><?php echo e($model['display_name']); ?></span><?php endif; ?></td>
+                <td><?php echo e($model['name']); ?><?php if ($model['display_name']) : ?> <span class="badge badge-gray"><?php echo e($model['display_name']); ?></span><?php endif; ?><?php if ($model['tags']) : ?><div class="form-hint"><?php echo e($model['tags']); ?></div><?php endif; ?></td>
                 <td><?php echo e($model['type']); ?></td>
                 <td>$<?php echo e(number_format((float)$model['input_price'], 6)); ?></td>
                 <td>$<?php echo e(number_format((float)$model['output_price'], 6)); ?></td>

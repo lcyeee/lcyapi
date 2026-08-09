@@ -237,7 +237,21 @@ function svg_icon($name, $class = 'i')
             'eye'      => '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
             'globe'    => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/>',
             'tag'      => '<path d="M3 3h8l10 10-8 8L3 11V3z"/><circle cx="8" cy="8" r="1.5"/>',
-            'history'  => '<path d="M4 11a8 8 0 1 1 2.3 6.3"/><path d="M4 18v-7h7"/><path d="M12 8v4l3 2"/>',
+            'tag'      => '<path d="M3 3h8l10 10-8 8L3 11V3z"/><circle cx="8" cy="8" r="1.5"/>',
+            'ratio'    => '<path d="M21 3 14 10M14 10l4 4M14 10H3l6 6"/>',
+            'users'    => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 11a3.5 3.5 0 0 1 0 7"/>',
+            'copy'     => '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+            'search'   => '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+            'trash'    => '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+            'check'    => '<path d="M4 12l5 5L20 7"/>',
+            'refresh'  => '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/>',
+            'plus'     => '<path d="M12 5v14M5 12h14"/>',
+            'minus'    => '<path d="M5 12h14"/>',
+            'logout'   => '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+            'gift'     => '<rect x="4" y="8" width="16" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9M12 8c-2.5 0-4-1.5-4-3s1.5-3 4-3 4 1.5 4 3-1.5 3-4 3z"/>',
+            'list'     => '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+            'cpu'      => '<rect x="7" y="7" width="10" height="10" rx="1"/><path d="M4 10H2M4 14H2M10 4V2M14 4V2M22 10h-2M22 14h-2M14 22v-2M10 22v-2M12 11v2M11 12h2"/>',
+            'key'      => '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M15 8l3 3M19 4l2 2"/>',
         ];
     }
     $inner = isset($icons[$name]) ? $icons[$name] : '';

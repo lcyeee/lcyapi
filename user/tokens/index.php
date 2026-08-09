@@ -25,6 +25,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_flash('flash_error', '模型限制必须是合法 JSON，例如 {"gpt-4o":8000}');
             redirect(base_url('user/tokens/index.php'));
         }
+        if (!Group::isUserSelectableGroup($group)) {
+            session_flash('flash_error', '分组「' . $group . '」不存在或不可用');
+            redirect(base_url('user/tokens/index.php'));
+        }
+        $autoList = $autoGroups !== '' ? array_filter(array_map('trim', explode(',', $autoGroups))) : [];
+        if ($group === 'auto' && count($autoList) > Group::maxTokenAutoGroups()) {
+            session_flash('flash_error', '自动分组数量超过上限（最多 ' . Group::maxTokenAutoGroups() . ' 个）');
+            redirect(base_url('user/tokens/index.php'));
+        }
         if ($allowIps !== '') {
             foreach (explode(',', $allowIps) as $oneIp) {
                 if (filter_var(trim($oneIp), FILTER_VALIDATE_IP) === false) {
@@ -55,6 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($modelLimits !== '' && json_decode($modelLimits, true) === null) {
             session_flash('flash_error', '模型限制必须是合法 JSON');
+            redirect(base_url('user/tokens/index.php'));
+        }
+        if ($group !== '' && !Group::isUserSelectableGroup($group)) {
+            session_flash('flash_error', '分组「' . $group . '」不存在或不可用');
+            redirect(base_url('user/tokens/index.php'));
+        }
+        $autoList = $autoGroups !== '' ? array_filter(array_map('trim', explode(',', $autoGroups))) : [];
+        if ($group === 'auto' && count($autoList) > Group::maxTokenAutoGroups()) {
+            session_flash('flash_error', '自动分组数量超过上限（最多 ' . Group::maxTokenAutoGroups() . ' 个）');
             redirect(base_url('user/tokens/index.php'));
         }
         if ($allowIps !== '') {
@@ -90,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $tokens = Token::getByUser(Auth::id());
 ?>
+<?php $usableGroupOptions = Group::usableGroups(); ?>
 <div class="card">
     <div class="card-title">创建令牌</div>
     <?php if ($newKeyFlash !== '') : ?>
@@ -118,16 +137,21 @@ $tokens = Token::getByUser(Auth::id());
             <input type="text" name="allow_ips" class="form-control" style="width:220px;" placeholder="1.2.3.4,5.6.7.8">
         </div>
         <div class="form-group" style="margin:0;">
-            <label>分组（留空=default）</label>
-            <input type="text" name="group" class="form-control" style="width:120px;" placeholder="default">
+            <label>分组</label>
+            <select name="group" class="form-control" style="width:140px;">
+                <?php foreach ($usableGroupOptions as $gname => $gdesc) : ?>
+                    <option value="<?php echo e($gname); ?>"><?php echo e($gname . ($gdesc !== $gname ? '（' . $gdesc . '）' : '')); ?></option>
+                <?php endforeach; ?>
+                <option value="auto">auto（自动分组）</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>自动分组（逗号分隔，auto 时留空=使用全局自动分组）</label>
+            <input type="text" name="auto_groups" class="form-control" style="width:180px;" placeholder="vip,internal">
         </div>
         <div class="form-group" style="margin:0;">
             <label>模型限制 JSON（可选，如 {"gpt-4o":8000}）</label>
             <input type="text" name="model_limits" class="form-control" style="width:220px;" placeholder='{"gpt-4o":8000}'>
-        </div>
-        <div class="form-group" style="margin:0;">
-            <label>自动分组（逗号分隔，可选）</label>
-            <input type="text" name="auto_groups" class="form-control" style="width:180px;" placeholder="vip,internal">
         </div>
         <button type="submit" class="btn">创建</button>
     </form>
@@ -198,7 +222,16 @@ $tokens = Token::getByUser(Auth::id());
                         </div>
                         <div class="form-group" style="margin:0;">
                             <label>分组</label>
-                            <input type="text" name="group" class="form-control" style="width:110px;" value="<?php echo e($token['group'] ?? 'default'); ?>">
+                            <select name="group" class="form-control" style="width:132px;">
+                                <?php $tokGroupEdit = $token['group'] ?? 'default'; ?>
+                                <?php foreach ($usableGroupOptions as $gname => $gdesc) : ?>
+                                    <option value="<?php echo e($gname); ?>" <?php echo $tokGroupEdit === $gname ? 'selected' : ''; ?>><?php echo e($gname); ?></option>
+                                <?php endforeach; ?>
+                                <?php if ($tokGroupEdit !== 'auto' && !isset($usableGroupOptions[$tokGroupEdit])) : ?>
+                                    <option value="<?php echo e($tokGroupEdit); ?>" selected><?php echo e($tokGroupEdit); ?>（未配置）</option>
+                                <?php endif; ?>
+                                <option value="auto" <?php echo $tokGroupEdit === 'auto' ? 'selected' : ''; ?>>auto（自动分组）</option>
+                            </select>
                         </div>
                         <div class="form-group" style="margin:0;">
                             <label>模型限制 JSON</label>

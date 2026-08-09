@@ -44,7 +44,8 @@ class Relay
             $price['input_price'] = isset($price['input_price']) ? $price['input_price'] : 0;
         }
 
-        $estimatedCost = self::estimateCost($apiType, $payload, $price);
+        $userGroup = isset($user['group']) && trim((string)$user['group']) !== '' ? (string)$user['group'] : 'default';
+        $estimatedCost = self::estimateCost($apiType, $payload, $price) * Group::getUserGroupRatio($userGroup);
         if ((float)$user['quota'] < $estimatedCost) {
             return self::openaiError('账户余额不足，预估需要 $' . number_format($estimatedCost, 6), 'insufficient_quota', 'insufficient_user_quota', 403);
         }
@@ -64,15 +65,9 @@ class Relay
         $startMs = microtime(true);
         $lastAttempt = null;
 
-        /* 分组：令牌分组优先，其次用户分组；auto_groups 作为候选组列表依次尝试 */
-        $groups = [isset($token['group']) && trim((string)$token['group']) !== '' ? (string)$token['group'] : (isset($user['group']) && trim((string)$user['group']) !== '' ? (string)$user['group'] : 'default')];
-        if (isset($token['auto_groups']) && trim((string)$token['auto_groups']) !== '') {
-            foreach (array_filter(array_map('trim', explode(',', $token['auto_groups']))) as $g) {
-                if (!in_array($g, $groups, true)) {
-                    $groups[] = $g;
-                }
-            }
-        }
+        /* 分组：令牌组（支持 auto 自动分组）优先，其次用户分组 */
+        $groups = Group::resolveTokenGroups($token, $userGroup);
+        $lastSelectedGroup = '';
 
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
             $selectedGroup = null;
@@ -87,6 +82,7 @@ class Relay
             if ($channel === false) {
                 break;
             }
+            $lastSelectedGroup = $selectedGroup;
             $excludeIds[] = (int)$channel['id'];
             $result = self::forward($channel, $endpoint, $rawBody, $isStream, $model);
             if ($result['ok']) {
@@ -94,7 +90,7 @@ class Relay
                 $usage = isset($result['usage']) ? $result['usage'] : null;
                 $promptTokens = isset($usage['prompt_tokens']) ? (int)$usage['prompt_tokens'] : 0;
                 $completionTokens = isset($usage['completion_tokens']) ? (int)$usage['completion_tokens'] : 0;
-                $cost = self::computeCost($apiType, $payload, $price, $promptTokens, $completionTokens);
+                $cost = self::computeCost($apiType, $payload, $price, $promptTokens, $completionTokens) * Group::getUserGroupRatio($userGroup, $lastSelectedGroup);
                 self::settle($user, $token, $channel, $model, $apiType, $promptTokens, $completionTokens, $cost, $duration, true, null, $rawBody, $estimatedCost);
                 Channel::incrementSuccess((int)$channel['id']);
                 if (!empty($result['body'])) {

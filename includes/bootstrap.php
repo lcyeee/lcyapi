@@ -33,7 +33,7 @@ spl_autoload_register(function ($class) {
         'User' => 'user', 'Log' => 'log', 'Billing' => 'billing', 'Cache' => 'cache',
         'RateLimit' => 'ratelimit', 'Validator' => 'validator', 'Response' => 'response',
         'Admin' => 'admin', 'Relay' => 'relay', 'Model' => 'model', 'Redemption' => 'redemption',
-        'Recharge' => 'recharge', 'Dashboard' => 'dashboard',
+        'Recharge' => 'recharge', 'Dashboard' => 'dashboard', 'Group' => 'group',
     ];
     if (isset($map[$class])) {
         $file = INCLUDE_PATH . '/' . $map[$class] . '.php';
