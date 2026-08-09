@@ -52,6 +52,10 @@ function admin_nav($needle, $requestPath)
             <a class="<?php echo admin_nav('/admin/perf_metrics.php', $requestPath); ?>" href="<?php echo base_url('admin/perf_metrics.php'); ?>"><?php echo svg_icon('cpu'); ?>性能指标</a>
             <a class="<?php echo admin_nav('/admin/usage_stats.php', $requestPath); ?>" href="<?php echo base_url('admin/usage_stats.php'); ?>"><?php echo svg_icon('dollar'); ?>用量统计</a>
             <a class="<?php echo admin_nav('/admin/settings/', $requestPath); ?>" href="<?php echo base_url('admin/settings/index.php'); ?>"><?php echo svg_icon('settings'); ?>系统设置</a>
+            <div class="group-title">供应商</div>
+            <a class="<?php echo admin_nav('/admin/suppliers.php', $requestPath); ?>" href="<?php echo base_url('admin/suppliers.php'); ?>"><?php echo svg_icon('server'); ?>供应商/部署</a>
+            <a class="<?php echo admin_nav('/admin/oauth_bindings.php', $requestPath); ?>" href="<?php echo base_url('admin/oauth_bindings.php'); ?>"><?php echo svg_icon('globe'); ?>OAuth 绑定</a>
+            <a class="<?php echo admin_nav('/admin/chat_presets.php', $requestPath); ?>" href="<?php echo base_url('admin/chat_presets.php'); ?>"><?php echo svg_icon('send'); ?>聊天预设</a>
         </nav>
     </aside>
     <div class="sidebar-mask" id="sidebarMask"></div>

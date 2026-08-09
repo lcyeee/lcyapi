@@ -33,6 +33,8 @@ $badChannels = DB::fetchAll('SELECT id, name, success_count, fail_count FROM cha
 $channelTop = DB::fetchAll('SELECT l.channel_id, c.name AS channel_name, COUNT(*) AS n, COALESCE(SUM(l.cost),0) AS c FROM logs l LEFT JOIN channels c ON c.id = l.channel_id WHERE l.status = 1 AND l.created_at >= ? AND l.channel_id > 0 GROUP BY l.channel_id ORDER BY c DESC LIMIT 8', [$weekStart . ' 00:00:00']);
 ?>
 <?php require __DIR__ . '/templates/header.php'; ?>
+<?php require dirname(__DIR__) . '/includes/dashboard_panels.php'; ?>
+<?php dashboard_panels(); ?>
 <div class="stat-grid">
     <div class="stat-card">
         <div class="label">今日调用</div>

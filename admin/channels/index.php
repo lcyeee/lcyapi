@@ -68,6 +68,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_flash('flash_success', '已删除 ' . count($ids) . ' 个渠道');
             audit_log('channel_batch_delete', null, 'ids=' . implode(',', $ids));
         }
+    } elseif ($action === 'batch_tag') {
+        if (empty($ids)) {
+            session_flash('flash_error', '请先勾选渠道');
+        } else {
+            $tag = trim($_POST['tag_value'] ?? '');
+            $tagMode = $_POST['tag_mode'] ?? 'add';
+            $in = implode(',', $ids);
+            if ($tagMode === 'add') {
+                /* 追加标签（逗号拼接） */
+                foreach ($ids as $cid) {
+                    $ch = Channel::getById($cid);
+                    if ($ch !== false) {
+                        $existing = array_filter(array_map('trim', explode(',', (string)$ch['tags'])));
+                        $existing[] = $tag;
+                        $existing = array_unique($existing);
+                        DB::query('UPDATE channels SET tags = ? WHERE id = ?', [implode(',', $existing), $cid]);
+                    }
+                }
+            } else {
+                DB::query("UPDATE channels SET tags = ? WHERE id IN ($in)", [$tag]);
+            }
+            session_flash('flash_success', '已更新 ' . count($ids) . ' 个渠道的标签');
+            audit_log('channel_batch_tag', null, 'tag=' . $tag . ' ids=' . implode(',', $ids));
+        }
     } elseif ($action === 'test') {
         $result = Channel::test($id);
         if (!empty($result['ok'])) {
@@ -103,6 +127,18 @@ $groupOptions = Group::allGroups();
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
+<?php if (isset($_GET['export']) && $_GET['export'] === '1') : ?>
+<div class="card">
+    <div class="card-title">导出配置</div>
+    <p class="text-muted">点击下方按钮下载渠道配置（CSV / JSON）。</p>
+    <div style="display:flex; gap:8px;">
+        <a class="btn" href="<?php echo base_url('admin/channels/export.php?format=csv'); ?>">导出 CSV</a>
+        <a class="btn btn-secondary" href="<?php echo base_url('admin/channels/export.php?format=json'); ?>">导出 JSON</a>
+        <a class="btn btn-secondary" href="<?php echo base_url('admin/channels/index.php'); ?>">返回</a>
+    </div>
+</div>
+<?php endif; ?>
+
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap;">
     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <form method="get" id="filterForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -127,16 +163,18 @@ $groupOptions = Group::allGroups();
                 <a class="btn btn-sm btn-secondary" href="<?php echo base_url('admin/channels/index.php'); ?>">清空筛选</a>
             <?php endif; ?>
         </form>
-        <form method="post" id="batchForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+<form method="post" id="batchForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="action" id="batchAction" value="">
             <button type="button" class="btn btn-sm btn-success" onclick="submitBatch('batch_enable')"><?php echo svg_icon('check'); ?>批量启用</button>
             <button type="button" class="btn btn-sm btn-warning" onclick="submitBatch('batch_disable')">批量停用</button>
             <button type="button" class="btn btn-sm btn-danger" onclick="submitBatch('batch_delete')">批量删除</button>
-            <span class="form-hint" style="margin:0;">勾选表格左侧复选框后操作</span>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="batchTagDialog()">批量标签</button>
+            <span class="form-hint" style="margin:0;">勾选后操作</span>
         </form>
-    </div>
-    <a class="btn" href="<?php echo base_url('admin/channels/edit.php'); ?>"><?php echo svg_icon('plus'); ?>新建渠道</a>
+        <div style="display:flex; gap:6px;">
+            <a class="btn btn-sm btn-secondary" href="<?php echo base_url('admin/channels/index.php?export=1'); ?>"><?php echo svg_icon('download'); ?>导出CSV</a>
+            <a class="btn" href="<?php echo base_url('admin/channels/edit.php'); ?>"><?php echo svg_icon('plus'); ?>新建渠道</a>
 </div>
 
 <table class="table">
@@ -229,6 +267,32 @@ function testChannel(id, name) {
 }
 function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function batchTagDialog() {
+    var ids = [];
+    document.querySelectorAll('.ch-row:checked').forEach(function (c) { ids.push(c.value); });
+    if (!ids.length) { LcyModal.alert({ title: '批量标签', message: '请先勾选渠道' }); return; }
+    var html = '<form id="batchTagForm" style="display:flex;flex-direction:column;gap:10px;">' +
+        '<div class="form-group"><label>标签值</label><input type="text" id="tagValue" class="form-control" placeholder="例如：主力"></div>' +
+        '<div class="form-group" style="display:flex;gap:12px;"><label class="ios-switch"><input type="radio" name="tagMode" value="add" checked><span></span></label><span>追加到现有标签</span></div>' +
+        '<div class="form-group" style="display:flex;gap:12px;"><label class="ios-switch"><input type="radio" name="tagMode" value="replace"><span></span></label><span>替换全部标签</span></div>' +
+        '</form>';
+    LcyModal.open({
+        title: '批量编辑标签（' + ids.length + ' 个渠道）',
+        message: html,
+        html: true,
+        confirmText: '确定',
+        onConfirm: function () {
+            var form = document.getElementById('batchForm');
+            document.getElementById('batchAction').value = 'batch_tag';
+            var h1 = document.createElement('input'); h1.type = 'hidden'; h1.name = 'tag_value'; h1.value = document.getElementById('tagValue').value;
+            var h2 = document.createElement('input'); h2.type = 'hidden'; h2.name = 'tag_mode'; h2.value = document.querySelector('input[name="tagMode"]:checked').value;
+            form.appendChild(h1); form.appendChild(h2);
+            form.querySelectorAll('input[name="ids[]"]').forEach(function (h) { h.remove(); });
+            ids.forEach(function (v) { var h = document.createElement('input'); h.type = 'hidden'; h.name = 'ids[]'; h.value = v; form.appendChild(h); });
+            form.submit();
+        }
+    });
 }
 function submitBatch(action) {
     var ids = [];

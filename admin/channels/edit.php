@@ -189,7 +189,17 @@ $balance = $channel ? $channel['balance'] : null;
         </div>
         <div class="form-group">
             <label>模型映射（JSON，可选）</label>
-            <textarea name="model_mapping" class="form-control" rows="2" placeholder='{"gpt-4o":"gpt-4o-0613","*":"gpt-3.5-turbo"}'><?php echo e($modelMapping); ?></textarea>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="toggleModelMappingEditor()">可视编辑</button>
+                <span class="form-hint">或直接编辑 JSON</span>
+            </div>
+            <textarea name="model_mapping" id="modelMappingInput" class="form-control" rows="2" placeholder='{"gpt-4o":"gpt-4o-0613","*":"gpt-3.5-turbo"}'><?php echo e($modelMapping); ?></textarea>
+            <div id="modelMappingEditor" style="display:none; margin-top:8px;">
+                <table class="table" style="margin-bottom:8px;">
+                    <thead><tr><th>源模型</th><th>目标模型</th><th><button type="button" class="btn btn-sm" onclick="addMappingRow()">+ 添加</button></th></tr></thead>
+                    <tbody id="mappingRows"></tbody>
+                </table>
+            </div>
             <div class="form-hint">客户端模型 → 上游模型；支持精确匹配、* 前缀通配与 "*" 兜底，转发时自动替换</div>
         </div>
         <div class="form-group">
@@ -437,6 +447,67 @@ $balance = $channel ? $channel['balance'] : null;
 
     renderSelectedChips();
 })();
+
+/* 模型映射可视编辑器 */
+function toggleModelMappingEditor() {
+    var ed = document.getElementById('modelMappingEditor');
+    ed.style.display = ed.style.display === 'none' ? 'block' : 'none';
+    if (ed.style.display === 'block') { syncMappingFromJson(); }
+}
+function syncMappingFromJson() {
+    var input = document.getElementById('modelMappingInput');
+    var tbody = document.getElementById('mappingRows');
+    tbody.innerHTML = '';
+    try {
+        var obj = JSON.parse(input.value || '{}');
+        Object.keys(obj).forEach(function (k) {
+            addMappingRow(k, obj[k]);
+        });
+    } catch (e) { /* ignore invalid JSON */ }
+}
+function addMappingRow(src, dst) {
+    var tbody = document.getElementById('mappingRows');
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><input type="text" class="form-control" style="width:140px;height:32px;" value="' + (src || '') + '" placeholder="源模型/*"></td>' +
+        '<td><input type="text" class="form-control" style="width:140px;height:32px;" value="' + (dst || '') + '" placeholder="目标模型"></td>' +
+        '<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest(\'tr\').remove();syncMappingToJson();">删除</button></td>';
+    tbody.appendChild(tr);
+    var inputs = tr.querySelectorAll('input');
+    inputs[0].addEventListener('input', syncMappingToJson);
+    inputs[1].addEventListener('input', syncMappingToJson);
+}
+function syncMappingToJson() {
+    var rows = document.getElementById('mappingRows').querySelectorAll('tr');
+    var obj = {};
+    rows.forEach(function (tr) {
+        var inputs = tr.querySelectorAll('input');
+        if (inputs.length >= 2) {
+            var k = inputs[0].value.trim();
+            var v = inputs[1].value.trim();
+            if (k) { obj[k] = v; }
+        }
+    });
+    document.getElementById('modelMappingInput').value = JSON.stringify(obj, null, 2);
+}
+
+/* 创建时根据渠道类型自动生成默认模型映射 */
+document.addEventListener('DOMContentLoaded', function () {
+    var typeSelect = document.querySelector('select[name="type"]');
+    var mappingInput = document.getElementById('modelMappingInput');
+    var isNew = <?php echo $channel ? 'false' : 'true'; ?>;
+    if (typeSelect && isNew && mappingInput && !mappingInput.value.trim()) {
+        typeSelect.addEventListener('change', function () {
+            var type = typeSelect.value;
+            var maps = {
+                'anthropic': '{"claude-3-7-sonnet-20250219":"claude-3-7-sonnet-20250219","claude-3-5-sonnet-20241022":"claude-3-5-sonnet-20241022","claude-3-5-haiku-20241022":"claude-3-5-haiku-20241022"}',
+                'gemini': '{"gemini-2.5-pro":"gemini-2.5-pro","gemini-2.5-flash":"gemini-2.5-flash","gemini-2.0-flash":"gemini-2.0-flash"}',
+            };
+            if (maps[type] && !mappingInput.value.trim()) {
+                mappingInput.value = maps[type];
+            }
+        });
+    }
+});
 </script>
 
 <?php require dirname(__DIR__) . '/templates/footer.php'; ?>
