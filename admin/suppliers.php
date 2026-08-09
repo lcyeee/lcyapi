@@ -2,7 +2,7 @@
 /**
  * 供应商/模型部署管理
  */
-require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+require dirname(__DIR__) . '/includes/bootstrap.php';
 Admin::requireAdmin();
 $pageTitle = '供应商与部署';
 

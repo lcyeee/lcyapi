@@ -1,5 +1,5 @@
 <?php
-require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+require dirname(__DIR__) . '/includes/bootstrap.php';
 Admin::requireAdmin();
 $pageTitle = '用户 OAuth 绑定管理';
 

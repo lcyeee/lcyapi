@@ -2,7 +2,7 @@
 /**
  * 聊天预设管理 - 配置外部聊天客户端（LobeChat 等 iframe 嵌入）
  */
-require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+require dirname(__DIR__) . '/includes/bootstrap.php';
 Admin::requireAdmin();
 $pageTitle = '聊天预设';
 
