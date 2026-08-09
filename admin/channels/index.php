@@ -170,6 +170,7 @@ $groupOptions = Group::allGroups();
             <button type="button" class="btn btn-sm btn-warning" onclick="submitBatch('batch_disable')">批量停用</button>
             <button type="button" class="btn btn-sm btn-danger" onclick="submitBatch('batch_delete')">批量删除</button>
             <button type="button" class="btn btn-sm btn-secondary" onclick="batchTagDialog()">批量标签</button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="batchTestAll()">批量测试</button>
             <span class="form-hint" style="margin:0;">勾选后操作</span>
         </form>
         <div style="display:flex; gap:6px;">
@@ -267,6 +268,52 @@ function testChannel(id, name) {
 }
 function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function batchTestAll() {
+    LcyModal.open({
+        title: '批量测试渠道',
+        message: '<div class="text-muted">正在测试所有渠道，请稍候…</div><div id="batchTestResult" style="margin-top:10px;max-height:300px;overflow-y:auto;"></div>',
+        html: true,
+        confirmText: '关闭',
+        closable: false
+    });
+    var channels = [];
+    <?php foreach ($channels as $ch) : ?>
+    channels.push({ id: <?php echo (int)$ch['id']; ?>, name: '<?php echo e($ch['name']); ?>' });
+    <?php endforeach; ?>
+    var idx = 0;
+    var resultBox = document.getElementById('batchTestResult');
+    function testNext() {
+        if (idx >= channels.length) {
+            var s = document.createElement('div');
+            s.style.cssText = 'margin-top:8px;color:var(--green);';
+            s.textContent = '测试完成，共 ' + channels.length + ' 个渠道';
+            resultBox.appendChild(s);
+            LcyModal.refresh({ confirmText: '关闭', closable: true });
+            return;
+        }
+        var c = channels[idx++];
+        var body = new FormData();
+        body.append('_csrf', '<?php echo csrf_token(); ?>');
+        body.append('action', 'test');
+        body.append('id', c.id);
+        fetch('<?php echo base_url('admin/channels/index.php'); ?>', { method: 'POST', body: body })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                var row = document.createElement('div');
+                var ok = res && res.ok;
+                row.innerHTML = '<span style="color:' + (ok ? 'var(--green)' : 'var(--red)') + ';">' + (ok ? '✓' : '✗') + '</span> ' + escapeHtml(c.name) + (ok ? '（' + (res.elapsed || '') + 'ms）' : '（' + escapeHtml(res.message || '失败') + '）');
+                resultBox.appendChild(row);
+                testNext();
+            })
+            .catch(function () {
+                var row = document.createElement('div');
+                row.innerHTML = '<span style="color:var(--red);">✗</span> ' + escapeHtml(c.name) + '（网络错误）';
+                resultBox.appendChild(row);
+                testNext();
+            });
+    }
+    testNext();
 }
 function batchTagDialog() {
     var ids = [];

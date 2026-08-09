@@ -69,6 +69,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             session_flash('flash_error', '请先勾选令牌');
         }
+    } elseif ($action === 'batch_delete') {
+        $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
+        if (!empty($ids)) {
+            $in = implode(',', $ids);
+            DB::query('DELETE FROM tokens WHERE id IN (' . $in . ')');
+            session_flash('flash_success', '已删除 ' . count($ids) . ' 个令牌');
+            audit_log('token_batch_delete', null, 'ids=' . $in);
+        } else {
+            session_flash('flash_error', '请先勾选令牌');
+        }
     }
     redirect(base_url('admin/tokens/index.php'));
 }
@@ -163,6 +173,11 @@ $tokens = DB::fetchAll('SELECT t.*, u.username FROM tokens t LEFT JOIN users u O
                 <input type="hidden" name="action" value="copy_keys">
                 <button type="button" class="btn btn-sm btn-secondary" onclick="submitCopyKeys()"><?php echo svg_icon('copy'); ?>复制所选密钥</button>
             </form>
+            <form method="post" id="batchTokenForm" style="display:flex; gap:8px; align-items:center; margin:0;">
+                <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                <input type="hidden" name="action" id="batchTokenAction" value="">
+                <button type="button" class="btn btn-sm btn-danger" onclick="batchDeleteTokens()">批量删除</button>
+            </form>
             <form method="get" style="display:flex; gap:8px; align-items:center;">
                 <input type="text" name="q" class="form-control" style="width:220px;" value="<?php echo e($keyword); ?>" placeholder="名称 / 用户 / 密钥片段">
                 <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>搜索</button>
@@ -189,7 +204,25 @@ $tokens = DB::fetchAll('SELECT t.*, u.username FROM tokens t LEFT JOIN users u O
                 <td><?php echo e($token['username'] ?: ('#' . $token['user_id'])); ?></td>
                 <td><span class="badge badge-blue"><?php echo e($token['group'] ?? 'default'); ?></span></td>
                 <td><span class="code-text"><?php echo e(Token::maskKey($token['key'])); ?></span></td>
-                <td><?php echo (float)$token['remain_quota'] < 0 ? '不限' : '$' . e(number_format((float)$token['remain_quota'], 4)); ?></td>
+                <td>
+                <?php if ((float)$token['remain_quota'] < 0) : ?>
+                    不限
+                <?php else : ?>
+                    <?php
+                    $used = (float)$token['used_quota'];
+                    $rem = (float)$token['remain_quota'];
+                    $total = $used + $rem;
+                    $pct = $total > 0 ? round($used / $total * 100) : 0;
+                    $color = $pct >= 80 ? 'var(--red)' : ($pct >= 50 ? 'var(--yellow)' : 'var(--green)');
+                    ?>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="flex:1; max-width:120px; height:6px; background:var(--card-2); border:1px solid var(--border); border-radius:999px; overflow:hidden;">
+                            <div style="width:<?php echo $pct; ?>%; height:100%; background:<?php echo $color; ?>; border-radius:999px;"></div>
+                        </div>
+                        <span style="font-size:11px; color:var(--text-2);">$<?php echo e(number_format($rem, 2)); ?></span>
+                    </div>
+                <?php endif; ?>
+            </td>
                 <td>$<?php echo e(number_format((float)$token['used_quota'], 4)); ?></td>
                 <td><?php echo number_format((int)$token['used_count']); ?></td>
                 <td><?php echo $token['expired_at'] ? e($token['expired_at']) : '-'; ?></td>
@@ -245,6 +278,27 @@ function submitCopyKeys() {
             ids.forEach(function (v) {
                 var h = document.createElement('input');
                 h.type = 'hidden'; h.name = 'ids[]'; h.value = v;
+                form.appendChild(h);
+            });
+            form.submit();
+        }
+    });
+}
+function batchDeleteTokens() {
+    var ids = [];
+    document.querySelectorAll('.tk-row:checked').forEach(function (c) { ids.push(c.value); });
+    if (!ids.length) { LcyModal.alert({ title: '批量删除', message: '请先勾选至少一个令牌' }); return; }
+    LcyModal.open({
+        title: '批量删除令牌',
+        message: '确定删除 ' + ids.length + ' 个令牌？删除后立即失效。',
+        confirmText: '删除',
+        danger: true,
+        onConfirm: function () {
+            var form = document.getElementById('batchTokenForm');
+            document.getElementById('batchTokenAction').value = 'batch_delete';
+            form.querySelectorAll('input[name="ids[]"]').forEach(function (h) { h.remove(); });
+            ids.forEach(function (v) {
+                var h = document.createElement('input'); h.type = 'hidden'; h.name = 'ids[]'; h.value = v;
                 form.appendChild(h);
             });
             form.submit();
