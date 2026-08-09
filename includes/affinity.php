@@ -1,7 +1,7 @@
 <?php
 /**
  * 渠道亲和性：同一用户 + 模型在会话期内尽量固定同一渠道，
- * 保证多轮对话上下文连续、账单一致（new-api affinity 的轻量实现）
+ * 保证多轮对话上下文连续、账单一致（lcyapi affinity 的轻量实现）
  */
 class Affinity
 {

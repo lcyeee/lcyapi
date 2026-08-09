@@ -3,7 +3,7 @@
  * OpenAI 兼容账单查询端点（供 OpenAI SDK / 第三方工具查询余额与用量）
  * GET /v1/dashboard/billing/subscription
  * GET /v1/dashboard/billing/usage?start_date=2020-01-01&end_date=2030-01-01
- * 认证：Bearer sk-（普通令牌即可，与 new-api 一致）
+ * 认证：Bearer sk-（普通令牌即可，与 lcyapi 一致）
  */
 if (!defined('ROOT_PATH')) {
     define('API_REQUEST', true);

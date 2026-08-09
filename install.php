@@ -139,6 +139,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = '站点名称不能为空且不超过 50 字';
         }
 
+        if (empty($_POST['agree_disclaimer'])) {
+            $errors[] = '请先阅读并同意免责声明与使用条款';
+        }
+
         if (!$configExists) {
             $dbCfg = [
                 'host' => isset($_POST['db_host']) ? trim($_POST['db_host']) : '',
@@ -255,7 +259,7 @@ body { display: flex; align-items: flex-start; justify-content: center; min-heig
     <div class="card">
         <div class="head">
             <h1>lcyapi 安装向导</h1>
-            <p>首次打开请配置数据库连接并创建管理员账号</p>
+            <p>参考 new-api 的 OpenAI 兼容 API 网关，仅供学习交流</p>
         </div>
 
         <?php if ($doneMsg !== '') : ?>
@@ -268,6 +272,19 @@ body { display: flex; align-items: flex-start; justify-content: center; min-heig
 
             <form method="post" action="install.php">
                 <input type="hidden" name="_csrf" value="<?php echo htmlspecialchars($_SESSION['install_csrf']); ?>">
+
+                <div class="step-title"><span class="no">0</span> 免责声明与使用条款（必读）</div>
+                <div class="note" style="max-height:220px; overflow-y:auto;">
+                    <strong>免责声明与使用条款</strong><br><br>
+                    1. 本项目（lcyapi）为个人开发的开源 / 免费项目，界面与功能参考了 <strong>new-api</strong> 等开源项目，仅用于学习与技术交流，不构成任何商业承诺。<br>
+                    2. 本系统用于转发调用第三方 / 上游大模型 API 并按其消耗计费。使用本系统所产生的一切后果——包括但不限于：违规或滥用上游 API、内容合规与法律责任、数据安全与隐私、账单异常、经营风险、法律纠纷等——<strong>均由使用者（部署者 / 运营者）自行承担</strong>。<br>
+                    3. <strong>制作者（开发者）不对</strong>因使用、修改、部署、或分发本系统而导致的任何直接或间接损失负责，<strong>不承担任何形式的法律或连带责任</strong>。<br>
+                    4. 部署本系统即代表您已阅读、理解并同意以上全部条款；如不同意，请勿继续安装并使用。
+                </div>
+                <div class="form-group" style="display:flex; align-items:flex-start; gap:10px; margin-top:4px;">
+                    <input type="checkbox" name="agree_disclaimer" id="agree_disc" value="1" required style="width:18px;height:18px;margin-top:2px;flex-shrink:0;">
+                    <label for="agree_disc" style="margin:0;">我已知晓并同意上述免责声明与使用条款，并自愿承担全部责任，同意继续安装。</label>
+                </div>
 
                 <div class="step-title"><span class="no">1</span> 数据库配置<?php echo $configExists ? '<span style="font-size:12px;color:var(--green-text);font-weight:400;">（使用现有 config.php）</span>' : ''; ?></div>
                 <?php if ($configExists) : ?>
@@ -300,7 +317,7 @@ body { display: flex; align-items: flex-start; justify-content: center; min-heig
                     </div>
                 <?php endif; ?>
 
-                <div class="step-title"><span class="no">2</span> 站点信息</div>
+                <div class="step-title"><span class="no">3</span> 站点信息</div>
                 <div class="form-group">
                     <label>站点名称</label>
                     <input type="text" name="site_name" class="form-control" value="<?php echo htmlspecialchars($_POST['site_name'] ?? $siteCfg['name']); ?>">
@@ -313,7 +330,7 @@ body { display: flex; align-items: flex-start; justify-content: center; min-heig
                     </div>
                 <?php endif; ?>
 
-                <div class="step-title"><span class="no">3</span> 管理员账号</div>
+                <div class="step-title"><span class="no">4</span> 管理员账号</div>
                 <div class="form-group">
                     <label>用户名</label>
                     <input type="text" name="admin_username" class="form-control" value="<?php echo htmlspecialchars($_POST['admin_username'] ?? ''); ?>" autocomplete="off">
