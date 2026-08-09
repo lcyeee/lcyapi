@@ -28,7 +28,9 @@ $affEnabled = setting('aff_enabled', '0') === '1';
 $checkinEnabled = setting('checkin_enabled', '0') === '1';
 $todayCheckin = DB::value('SELECT id FROM checkins WHERE user_id = ? AND checkin_date = ?', [Auth::id(), date('Y-m-d')]);
 $checkinCount = (int)DB::value('SELECT COUNT(*) FROM checkins WHERE user_id = ?', [Auth::id()]);
+$checkinStreak = (int)DB::value('SELECT checkin_streak FROM users WHERE id = ?', [Auth::id()]);
 $invitedCount = (int)DB::value('SELECT COUNT(*) FROM users WHERE aff_by = ?', [Auth::id()]);
+$invitedUsers = $invitedCount > 0 ? DB::fetchAll('SELECT username, nickname, created_at FROM users WHERE aff_by = ? ORDER BY id DESC LIMIT 10', [Auth::id()]) : [];
 $affLink = base_url('user/register.php?aff=' . urlencode($user['aff_code'] ?: ''));
 ?>
 <div class="stat-grid">
@@ -57,7 +59,7 @@ $affLink = base_url('user/register.php?aff=' . urlencode($user['aff_code'] ?: ''
             <div class="card-title"><?php echo svg_icon('check'); ?>每日签到</div>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
                 <div>
-                    <div class="form-hint">累计签到 <?php echo $checkinCount; ?> 天，每次奖励 $<?php echo e(number_format((float)setting('checkin_reward', '0'), 4)); ?></div>
+                    <div class="form-hint">累计签到 <?php echo $checkinCount; ?> 天<?php echo $checkinStreak > 0 ? '，当前连续 ' . $checkinStreak . ' 天' : ''; ?>，每次奖励 $<?php echo e(number_format((float)setting('checkin_reward', '0'), 4)); ?><?php $bonusStep = (float)setting('checkin_bonus_step', '0'); echo $bonusStep > 0 ? '，连续签到每日 +$' . number_format($bonusStep, 4) . '（封顶 7 天）' : ''; ?></div>
                 </div>
                 <?php if ($todayCheckin !== null) : ?>
                     <span class="badge badge-green">今日已签到</span>
@@ -96,6 +98,17 @@ $affLink = base_url('user/register.php?aff=' . urlencode($user['aff_code'] ?: ''
                     </form>
                 <?php endif; ?>
             </div>
+            <?php if (count($invitedUsers) > 0) : ?>
+                <div class="detail-list" style="margin-top:12px;">
+                    <div class="item"><div class="k" style="font-weight:600;">最近被邀请</div><div class="v"></div></div>
+                    <?php foreach ($invitedUsers as $iu) : ?>
+                        <div class="item" style="padding:6px 0;">
+                            <div class="k"><?php echo e($iu['nickname'] ?: $iu['username']); ?></div>
+                            <div class="v"><?php echo e(date('Y-m-d', strtotime($iu['created_at']))); ?></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
     </div>

@@ -428,20 +428,28 @@ class Auth
             return ['ok' => false, 'msg' => '今天已签到'];
         }
         $reward = (float)setting('checkin_reward', '0');
+        /* 连续签到：昨天签过则 +1，否则重新计 1；奖励递增按每日加成，封顶 7 天 */
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
+        $streakBase = (int)DB::value('SELECT checkin_streak FROM users WHERE id = ?', [(int)$userId]);
+        $prevDay = DB::value('SELECT id FROM checkins WHERE user_id = ? AND checkin_date = ?', [(int)$userId, $yesterday]);
+        $streak = $prevDay !== null ? $streakBase + 1 : 1;
+        $bonusStep = (float)setting('checkin_bonus_step', '0');
+        $bonusDays = max(0, min($streak - 1, 6));
+        $reward = round($reward + $bonusDays * $bonusStep, 6);
         DB::begin();
         try {
             DB::insert('checkins', ['user_id' => (int)$userId, 'checkin_date' => $today, 'reward' => $reward]);
+            DB::query('UPDATE users SET quota = quota + ?, total_quota = total_quota + ?, checkin_streak = ? WHERE id = ?', [$reward, $reward, $streak, (int)$userId]);
             if ($reward > 0) {
-                DB::query('UPDATE users SET quota = quota + ?, total_quota = total_quota + ? WHERE id = ?', [$reward, $reward, (int)$userId]);
                 DB::insert('recharge_logs', [
                     'user_id' => (int)$userId,
                     'amount' => $reward,
                     'type' => 'checkin',
-                    'remark' => '每日签到奖励',
+                    'remark' => '每日签到奖励（连续 ' . $streak . ' 天）',
                 ]);
             }
             DB::commit();
-            return ['ok' => true, 'msg' => $reward > 0 ? '签到成功，奖励 $' . number_format($reward, 4) : '签到成功'];
+            return ['ok' => true, 'msg' => $reward > 0 ? '签到成功，奖励 $' . number_format($reward, 4) . '（连续 ' . $streak . ' 天）' : '签到成功'];
         } catch (Exception $ex) {
             DB::rollback();
             /* 唯一索引冲突 = 并发重复签到 */

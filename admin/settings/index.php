@@ -67,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $selfUseMode = empty($_POST['self_use_mode']) ? '0' : '1';
     $faqEnabled = empty($_POST['faq_enabled']) ? '0' : '1';
     $faqContent = mb_substr(trim($_POST['faq_content'] ?? ''), 0, 20000);
+    $checkinBonusStep = max(0, (float)($_POST['checkin_bonus_step'] ?? 0));
     $autoDisableStatusCodes = mb_substr(trim($_POST['auto_disable_status_codes'] ?? ''), 0, 200);
     $autoDisableKeywords = mb_substr(trim($_POST['auto_disable_keywords'] ?? ''), 0, 500);
     $retryStatusCodes = mb_substr(trim($_POST['retry_status_codes'] ?? ''), 0, 200);
@@ -138,6 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setting_set('self_use_mode', $selfUseMode);
     setting_set('faq_enabled', $faqEnabled);
     setting_set('faq_content', $faqContent);
+    setting_set('checkin_bonus_step', (string)$checkinBonusStep);
     setting_set('auto_disable_status_codes', $autoDisableStatusCodes);
     setting_set('auto_disable_keywords', $autoDisableKeywords);
     setting_set('retry_status_codes', $retryStatusCodes);
@@ -205,6 +207,7 @@ $topupDiscount = isset($s['topup_discount']) ? $s['topup_discount'] : '1';
 $selfUseMode = isset($s['self_use_mode']) ? $s['self_use_mode'] : '0';
 $faqEnabled = isset($s['faq_enabled']) ? $s['faq_enabled'] : '0';
 $faqContent = isset($s['faq_content']) ? $s['faq_content'] : '';
+$checkinBonusStep = isset($s['checkin_bonus_step']) ? $s['checkin_bonus_step'] : '0';
 $autoDisableStatusCodes = isset($s['auto_disable_status_codes']) ? $s['auto_disable_status_codes'] : '';
 $autoDisableKeywords = isset($s['auto_disable_keywords']) ? $s['auto_disable_keywords'] : '';
 $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] : '';
@@ -376,6 +379,11 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
         <div class="form-group">
             <label>每日签到奖励（$）</label>
             <input type="number" name="checkin_reward" step="0.0001" min="0" class="form-control" value="<?php echo e($checkinReward); ?>">
+        </div>
+        <div class="form-group">
+            <label>连续签到每日加成（$，封顶 7 天）</label>
+            <input type="number" name="checkin_bonus_step" step="0.0001" min="0" class="form-control" value="<?php echo e($checkinBonusStep); ?>" placeholder="如 0.01：第 2 天 +0.01、第 3 天 +0.02……">
+            <div class="form-hint">连续签到第 N 天奖励 = 基础奖励 + (N-1)×加成；中断后重新从第 1 天计算。</div>
         </div>
     </div>
 
