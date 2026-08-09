@@ -30,6 +30,7 @@ for ($i = 6; $i >= 0; $i--) {
 
 $recentLogs = DB::fetchAll('SELECT l.*, u.username FROM logs l LEFT JOIN users u ON u.id = l.user_id ORDER BY l.id DESC LIMIT 10');
 $badChannels = DB::fetchAll('SELECT id, name, success_count, fail_count FROM channels WHERE fail_count > success_count AND fail_count > 10 ORDER BY fail_count DESC LIMIT 5');
+$channelTop = DB::fetchAll('SELECT l.channel_id, c.name AS channel_name, COUNT(*) AS n, COALESCE(SUM(l.cost),0) AS c FROM logs l LEFT JOIN channels c ON c.id = l.channel_id WHERE l.status = 1 AND l.created_at >= ? AND l.channel_id > 0 GROUP BY l.channel_id ORDER BY c DESC LIMIT 8', [$weekStart . ' 00:00:00']);
 ?>
 <?php require __DIR__ . '/templates/header.php'; ?>
 <div class="stat-grid">
@@ -60,6 +61,15 @@ $badChannels = DB::fetchAll('SELECT id, name, success_count, fail_count FROM cha
         <canvas id="trendChart"></canvas>
     </div>
 </div>
+
+<?php if (!empty($channelTop)) : ?>
+<div class="card">
+    <div class="card-title">渠道费用排行（近 7 天，按成功请求计费）</div>
+    <div class="chart-box" style="height:<?php echo max(180, count($channelTop) * 34); ?>px;">
+        <canvas id="channelTopChart"></canvas>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if (!empty($badChannels)) : ?>
     <div class="alert alert-danger">
@@ -119,6 +129,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    <?php if (!empty($channelTop)) : ?>
+    const cNames = <?php echo json_encode(array_map(function ($r2) {
+        return ($r2['channel_name'] !== null ? $r2['channel_name'] : '#' . $r2['channel_id']);
+    }, $channelTop)); ?>;
+    const cCosts = <?php echo json_encode(array_map(function ($r2) {
+        return round((float)$r2['c'], 6);
+    }, $channelTop)); ?>;
+    const cCounts = <?php echo json_encode(array_map(function ($r2) {
+        return (int)$r2['n'];
+    }, $channelTop)); ?>;
+    new Chart(document.getElementById('channelTopChart'), {
+        type: 'bar',
+        data: {
+            labels: cNames,
+            datasets: [
+                { label: '费用 ($)', data: cCosts, backgroundColor: 'rgba(' + accentRgb + ',.75)', borderRadius: 6 }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { afterLabel: function (item) { return '调用 ' + cCounts[item.dataIndex] + ' 次'; } } } },
+            scales: { x: { beginAtZero: true, title: { display: true, text: '费用 ($)' } } }
+        }
+    });
+    <?php endif; ?>
 });
 </script>
 <?php require __DIR__ . '/templates/footer.php'; ?>
