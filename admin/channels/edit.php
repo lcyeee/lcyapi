@@ -63,6 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'status' => empty($_POST['status']) ? 0 : 1,
         'remark' => mb_substr(trim($_POST['remark'] ?? ''), 0, 255),
     ];
+    $balanceInput = trim($_POST['balance'] ?? '');
+    $data['balance'] = $balanceInput === '' ? null : max(0, (float)$balanceInput);
     if ($data['api_keys'] !== '') {
         $keysList = array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', $data['api_keys']) ?: []), function ($k) {
             return $k !== '';
@@ -120,6 +122,7 @@ $weight = $channel ? (int)$channel['weight'] : 1;
 $priority = $channel ? (int)$channel['priority'] : 0;
 $status = $channel ? (int)$channel['status'] : 1;
 $remark = $channel ? $channel['remark'] : '';
+$balance = $channel ? $channel['balance'] : null;
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
@@ -203,6 +206,11 @@ $remark = $channel ? $channel['remark'] : '';
                 <label>优先级（越大越优先）</label>
                 <input type="number" name="priority" class="form-control" value="<?php echo $priority; ?>">
             </div>
+        </div>
+        <div class="form-group">
+            <label>余额额度（USD）</label>
+            <input type="number" step="0.000001" min="0" name="balance" class="form-control" value="<?php echo $balance === null ? '' : e((string)$balance); ?>" placeholder="留空=不限额度">
+            <div class="form-hint">设置后每次成功请求按费用扣减，余额耗尽自动停用渠道；留空表示不限制</div>
         </div>
         <div class="form-group">
             <label>备注</label>

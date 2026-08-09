@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS channels (
     api_keys TEXT DEFAULT NULL COMMENT '多 Key JSON 数组，转发时随机选取',
     tags VARCHAR(255) DEFAULT NULL COMMENT '标签，逗号分隔',
     models TEXT DEFAULT NULL,
+    balance DECIMAL(14,6) DEFAULT NULL COMMENT '渠道剩余额度(USD)，NULL=不限',
     weight INT UNSIGNED NOT NULL DEFAULT 1,
     priority INT NOT NULL DEFAULT 0,
     `group` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '服务分组，逗号分隔，空=全部',

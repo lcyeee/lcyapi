@@ -16,7 +16,7 @@ class Channel
 
     public static function create($data)
     {
-        $fields = ['name', 'type', 'base_url', 'api_key', 'api_keys', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark', 'tags'];
+        $fields = ['name', 'type', 'base_url', 'api_key', 'api_keys', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark', 'tags', 'balance'];
         $insert = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -49,7 +49,7 @@ class Channel
 
     public static function update($id, $data)
     {
-        $fields = ['name', 'type', 'base_url', 'api_key', 'api_keys', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark', 'tags', 'last_use_at'];
+        $fields = ['name', 'type', 'base_url', 'api_key', 'api_keys', 'models', 'group', 'model_mapping', 'extra_headers', 'weight', 'priority', 'status', 'remark', 'tags', 'last_use_at', 'balance'];
         $update = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -112,6 +112,9 @@ class Channel
             $channels = self::all(1);
             foreach ($channels as $channel) {
                 if (!self::inGroup($channel, $group)) {
+                    continue;
+                }
+                if (isset($channel['balance']) && $channel['balance'] !== null && (float)$channel['balance'] <= 0) {
                     continue;
                 }
                 if (self::supportsModel($channel, $model)) {

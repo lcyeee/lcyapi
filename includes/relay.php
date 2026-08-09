@@ -610,6 +610,14 @@ class Relay
                     Token::charge((int)$token['id'], 0);
                 }
                 User::incrementApiCount((int)$user['id']);
+                if ($channel !== null && isset($channel['balance']) && $channel['balance'] !== null && (float)$channel['balance'] > 0) {
+                    DB::query('UPDATE channels SET balance = balance - ? WHERE id = ?', [$cost, (int)$channel['id']]);
+                    $newBalance = (float)DB::value('SELECT balance FROM channels WHERE id = ?', [(int)$channel['id']]);
+                    if ($newBalance <= 0) {
+                        Channel::update((int)$channel['id'], ['status' => 0]);
+                        write_log("channel #{$channel['id']} {$channel['name']} 已自动停用：余额耗尽", 'balance');
+                    }
+                }
             }
             Log::write($logData);
             DB::commit();

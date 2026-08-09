@@ -144,7 +144,7 @@ $groupOptions = Group::allGroups();
         <tr>
             <th style="width:36px;"><input type="checkbox" id="checkAll" onclick="toggleAll(this)"></th>
             <th>ID</th><th>名称</th><th>类型</th><th>地址</th><th>模型</th><th>分组</th><th>权重</th>
-            <th>优先级</th><th>状态</th><th>成功/失败</th><th>最后使用</th><th>操作</th>
+            <th>优先级</th><th>状态</th><th>成功/失败</th><th>余额</th><th>最后使用</th><th>操作</th>
         </tr>
     </thead>
     <tbody>
@@ -169,6 +169,7 @@ $groupOptions = Group::allGroups();
                 <span class="badge badge-green"><?php echo (int)$channel['success_count']; ?></span>
                 <span class="badge <?php echo $channel['fail_count'] > $channel['success_count'] ? 'badge-red' : 'badge-gray'; ?>"><?php echo (int)$channel['fail_count']; ?></span>
             </td>
+            <td><?php echo $channel['balance'] === null ? '不限' : '$' . e(rtrim(rtrim(number_format((float)$channel['balance'], 6, '.', ''), '0'), '.')); ?></td>
             <td><?php echo e($channel['last_use_at'] ?: '-'); ?></td>
             <td style="white-space:nowrap;">
                 <button type="button" class="btn btn-sm btn-secondary" onclick="testChannel(<?php echo (int)$channel['id']; ?>, '<?php echo e($channel['name']); ?>')">测试</button>
