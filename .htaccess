@@ -1,4 +1,5 @@
 # lcyapi - Apache 重写规则（可选）
+# 部署时将此文件放入站点根目录即可生效
 
 Options -Indexes
 
