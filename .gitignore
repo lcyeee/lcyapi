@@ -6,6 +6,9 @@ data/
 # 本地环境配置（含数据库密码等敏感信息，安装向导自动生成）
 config.php
 
+# AI 协作文档（不上传 GitHub）
+AGENTS.md
+
 # 系统文件
 Thumbs.db
 .DS_Store
