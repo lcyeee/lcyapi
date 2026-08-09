@@ -39,6 +39,7 @@ spl_autoload_register(function ($class) {
         'Affinity' => 'affinity', 'Rankings' => 'rankings', 'Notify' => 'notify',
         'PerfMetrics' => 'perf_metrics', 'UsageData' => 'usedata', 'ChatPreset' => 'chat_preset',
         'FileService' => 'file_service', 'TaskWorker' => 'task_worker', 'AudioParser' => 'audio_parser', 'WorkerProxy' => 'worker_proxy',
+        'SystemMonitor' => 'system_monitor', 'BodyStorage' => 'body_storage',
     ];
     if (isset($map[$class])) {
         $file = INCLUDE_PATH . '/' . $map[$class] . '.php';

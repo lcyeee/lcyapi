@@ -377,3 +377,93 @@ function theme_head_scripts()
 JS;
     return '<script>' . $inline . '</script>' . "\n" . '<script src="' . base_url('assets/js/theme.js') . '"></script>' . "\n" . '<script src="' . base_url('assets/js/modal.js') . '"></script>';
 }
+
+/**
+ * 生成 HMAC 签名
+ */
+function hmac_sign($data, $secret, $algo = 'sha256')
+{
+    return hash_hmac($algo, (string)$data, (string)$secret);
+}
+
+/**
+ * 验证 HMAC 签名
+ */
+function hmac_verify($data, $signature, $secret, $algo = 'sha256')
+{
+    return hash_equals(hash_hmac($algo, (string)$data, (string)$secret), (string)$signature);
+}
+
+/**
+ * 信任域名重定向白名单验证
+ */
+function safe_redirect_url($url, $fallback = '')
+{
+    $trusted = setting('trusted_redirect_domains', '');
+    if ($trusted === '') {
+        return $url;
+    }
+    $host = parse_url($url, PHP_URL_HOST);
+    if ($host === null) {
+        return $fallback;
+    }
+    $domains = array_filter(array_map('trim', explode(',', $trusted)));
+    foreach ($domains as $domain) {
+        if ($host === $domain || (strlen($host) > strlen($domain) + 1 && substr($host, -strlen($domain) - 1) === '.' . $domain)) {
+            return $url;
+        }
+    }
+    return $fallback;
+}
+
+/**
+ * HTTP 状态码范围匹配
+ */
+function status_code_in_range($code, $ranges)
+{
+    if (!is_string($ranges) || $ranges === '') {
+        return false;
+    }
+    $code = (int)$code;
+    foreach (explode(',', $ranges) as $range) {
+        $range = trim($range);
+        if (strpos($range, '-') !== false) {
+            list($min, $max) = explode('-', $range, 2);
+            if ($code >= (int)$min && $code <= (int)$max) {
+                return true;
+            }
+        } elseif ((int)$range === $code) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * 证明令牌（security proof）生成与验证
+ */
+function issue_proof_token($scope, $ttl = 300)
+{
+    $token = bin2hex(random_bytes(16));
+    $hash = hash('sha256', $token);
+    $_SESSION['proof_' . $scope] = ['token' => $hash, 'expires' => time() + $ttl];
+    return $token;
+}
+
+function verify_proof_token($scope, $token)
+{
+    $key = 'proof_' . $scope;
+    if (!isset($_SESSION[$key])) {
+        return false;
+    }
+    $data = $_SESSION[$key];
+    if (time() > $data['expires']) {
+        unset($_SESSION[$key]);
+        return false;
+    }
+    if (!hash_equals($data['token'], hash('sha256', (string)$token))) {
+        return false;
+    }
+    unset($_SESSION[$key]);
+    return true;
+}

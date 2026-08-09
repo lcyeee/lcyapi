@@ -14,6 +14,10 @@ class Notify
      */
     public static function send($userId, $title, $message, $channel = null)
     {
+        /* 通知频率限制 */
+        if (!self::checkRateLimit()) {
+            return false;
+        }
         $user = User::find($userId);
         if ($user === false) {
             return false;
@@ -134,5 +138,19 @@ class Notify
         if ((float)$user['quota'] <= $threshold) {
             self::send($userId, '余额不足提醒', '您的账户余额已低于 $' . number_format($threshold, 2) . '，请及时充值。当前余额：$' . number_format((float)$user['quota'], 4));
         }
+    }
+
+    /**
+     * 通知频率限制：每小时最多 N 条
+     */
+    private static function checkRateLimit()
+    {
+        $limit = max(1, (int)setting('notify_rate_limit', '60'));
+        $key = 'notify_rate:' . date('YmdH');
+        $count = (int)DB::value('SELECT COUNT(*) FROM logs WHERE error_msg LIKE ? AND created_at >= ?', ['notify:%', date('Y-m-d H:00:00')]);
+        if (class_exists('RateLimit') && method_exists('RateLimit', 'check')) {
+            return RateLimit::check($key, $limit, 3600);
+        }
+        return $count < $limit;
     }
 }

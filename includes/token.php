@@ -3,6 +3,19 @@ class Token
 {
     const PREFIX = 'sk-';
 
+    /**
+     * 检查用户令牌数量是否超过上限
+     */
+    public static function checkUserLimit($userId)
+    {
+        $max = (int)setting('max_tokens_per_user', '0');
+        if ($max <= 0) {
+            return true;
+        }
+        $count = (int)DB::value('SELECT COUNT(*) FROM tokens WHERE user_id = ?', [(int)$userId]);
+        return $count < $max;
+    }
+
     public static function generateKey()
     {
         return self::PREFIX . bin2hex(random_bytes(24));

@@ -5,11 +5,64 @@
  */
 class PayOrder
 {
+    /**
+     * 支付合规确认状态
+     */
+    public static function paymentComplianceConfirmed()
+    {
+        $confirmed = setting('payment_compliance_confirmed', '0');
+        /* 若从未配置过支付，则不强制 */
+        $hasConfig = setting('epay_api_url', '') !== '' || setting('stripe_secret_key', '') !== '' || setting('creem_api_key', '') !== '' || setting('waffo_api_key', '') !== '';
+        if (!$hasConfig) {
+            return true;
+        }
+        return $confirmed === '1';
+    }
+
+    /**
+     * 确认支付合规
+     */
+    public static function confirmCompliance($adminId)
+    {
+        setting_set('payment_compliance_confirmed', '1');
+        setting_set('payment_compliance_at', date('Y-m-d H:i:s'));
+        setting_set('payment_compliance_by', (string)$adminId);
+        audit_log('payment_compliance_confirm', null, 'admin=' . $adminId);
+    }
+
+    /**
+     * 检查各支付渠道可用性
+     */
+    public static function providerAvailability()
+    {
+        $providers = [];
+        $configs = [
+            'epay' => ['epay_api_url', 'epay_pid', 'epay_key'],
+            'stripe' => ['stripe_secret_key'],
+            'creem' => ['creem_api_key', 'creem_product_id'],
+            'waffo' => ['waffo_api_key'],
+        ];
+        foreach ($configs as $provider => $keys) {
+            $configured = true;
+            foreach ($keys as $key) {
+                if (setting($key, '') === '') {
+                    $configured = false;
+                    break;
+                }
+            }
+            $providers[$provider] = $configured;
+        }
+        return $providers;
+    }
     public static function create($userId, $amount, $provider)
     {
         $amount = round((float)$amount, 2);
         if ($amount <= 0) {
             return ['ok' => false, 'msg' => '充值金额需大于 0'];
+        }
+        /* 支付合规确认 */
+        if (!self::paymentComplianceConfirmed()) {
+            return ['ok' => false, 'msg' => '管理员尚未确认支付合规条款，请联系管理员'];
         }
         $ratio = (float)setting('pay_ratio', '1');
         $discount = max(0.1, min(1, (float)setting('topup_discount', '1')));

@@ -46,6 +46,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $oauthTelegramEnabled = empty($_POST['oauth_telegram_enabled']) ? '0' : '1';
     $oauthTelegramBotToken = mb_substr(trim($_POST['oauth_telegram_bot_token'] ?? ''), 0, 200);
     $oauthTelegramUsername = mb_substr(trim($_POST['oauth_telegram_bot_username'] ?? ''), 0, 100);
+    $oauthDiscordEnabled = empty($_POST['oauth_discord_enabled']) ? '0' : '1';
+    $oauthDiscordId = mb_substr(trim($_POST['oauth_discord_client_id'] ?? ''), 0, 100);
+    $oauthDiscordSecret = mb_substr(trim($_POST['oauth_discord_client_secret'] ?? ''), 0, 200);
+    $oauthLinuxdoEnabled = empty($_POST['oauth_linuxdo_enabled']) ? '0' : '1';
+    $oauthLinuxdoId = mb_substr(trim($_POST['oauth_linuxdo_client_id'] ?? ''), 0, 100);
+    $oauthLinuxdoSecret = mb_substr(trim($_POST['oauth_linuxdo_client_secret'] ?? ''), 0, 200);
+    $oauthLinuxdoBaseUrl = mb_substr(trim($_POST['oauth_linuxdo_base_url'] ?? ''), 0, 200);
+    $oauthOidcEnabled = empty($_POST['oauth_oidc_enabled']) ? '0' : '1';
+    $oauthOidcIssuer = mb_substr(trim($_POST['oauth_oidc_issuer'] ?? ''), 0, 200);
+    $oauthOidcId = mb_substr(trim($_POST['oauth_oidc_client_id'] ?? ''), 0, 100);
+    $oauthOidcSecret = mb_substr(trim($_POST['oauth_oidc_client_secret'] ?? ''), 0, 200);
+    $oauthWechatEnabled = empty($_POST['oauth_wechat_enabled']) ? '0' : '1';
+    $oauthWechatAppId = mb_substr(trim($_POST['oauth_wechat_app_id'] ?? ''), 0, 100);
+    $oauthWechatSecret = mb_substr(trim($_POST['oauth_wechat_app_secret'] ?? ''), 0, 200);
+    if (isset($_POST['confirm_payment_compliance']) && $_POST['confirm_payment_compliance'] === '1') {
+        PayOrder::confirmCompliance(Auth::id());
+    }
     $payRatio = max(0, (float)($_POST['pay_ratio'] ?? 1));
     $epayEnabled = empty($_POST['epay_enabled']) ? '0' : '1';
     $epayApiUrl = rtrim(mb_substr(trim($_POST['epay_api_url'] ?? ''), 0, 200), '/');
@@ -71,6 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $autoDisableStatusCodes = mb_substr(trim($_POST['auto_disable_status_codes'] ?? ''), 0, 200);
     $autoDisableKeywords = mb_substr(trim($_POST['auto_disable_keywords'] ?? ''), 0, 500);
     $retryStatusCodes = mb_substr(trim($_POST['retry_status_codes'] ?? ''), 0, 200);
+    $modelRateLimit = max(0, (int)($_POST['model_rate_limit'] ?? 0));
+    $modelRateWindow = max(1, (int)($_POST['model_rate_limit_window'] ?? 60));
+    $modelSuccessRateLimit = max(0, (int)($_POST['model_success_rate_limit'] ?? 0));
+    $freeModelSkipDeduct = empty($_POST['free_model_skip_deduct']) ? '0' : '1';
+    $toolPrices = mb_substr(trim($_POST['tool_prices'] ?? ''), 0, 2000);
+    $trustedRedirectDomains = mb_substr(trim($_POST['trusted_redirect_domains'] ?? ''), 0, 500);
+    $notifyRateLimit = max(1, (int)($_POST['notify_rate_limit'] ?? 60));
 
     if ($name === '') {
         session_flash('flash_error', '站点名称不能为空');
@@ -119,6 +143,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setting_set('oauth_telegram_enabled', $oauthTelegramEnabled);
     setting_set('oauth_telegram_bot_token', $oauthTelegramBotToken);
     setting_set('oauth_telegram_bot_username', $oauthTelegramUsername);
+    setting_set('oauth_discord_enabled', $oauthDiscordEnabled);
+    setting_set('oauth_discord_client_id', $oauthDiscordId);
+    setting_set('oauth_discord_client_secret', $oauthDiscordSecret);
+    setting_set('oauth_linuxdo_enabled', $oauthLinuxdoEnabled);
+    setting_set('oauth_linuxdo_client_id', $oauthLinuxdoId);
+    setting_set('oauth_linuxdo_client_secret', $oauthLinuxdoSecret);
+    setting_set('oauth_linuxdo_base_url', $oauthLinuxdoBaseUrl);
+    setting_set('oauth_oidc_enabled', $oauthOidcEnabled);
+    setting_set('oauth_oidc_issuer', $oauthOidcIssuer);
+    setting_set('oauth_oidc_client_id', $oauthOidcId);
+    setting_set('oauth_oidc_client_secret', $oauthOidcSecret);
+    setting_set('oauth_wechat_enabled', $oauthWechatEnabled);
+    setting_set('oauth_wechat_app_id', $oauthWechatAppId);
+    setting_set('oauth_wechat_app_secret', $oauthWechatSecret);
     setting_set('pay_ratio', (string)$payRatio);
     setting_set('epay_enabled', $epayEnabled);
     setting_set('epay_api_url', $epayApiUrl);
@@ -143,6 +181,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setting_set('auto_disable_status_codes', $autoDisableStatusCodes);
     setting_set('auto_disable_keywords', $autoDisableKeywords);
     setting_set('retry_status_codes', $retryStatusCodes);
+    setting_set('model_rate_limit', (string)$modelRateLimit);
+    setting_set('model_rate_limit_window', (string)$modelRateWindow);
+    setting_set('model_success_rate_limit', (string)$modelSuccessRateLimit);
+    setting_set('free_model_skip_deduct', $freeModelSkipDeduct);
+    setting_set('tool_prices', $toolPrices);
+    setting_set('trusted_redirect_domains', $trustedRedirectDomains);
+    setting_set('notify_rate_limit', (string)$notifyRateLimit);
 
     audit_log('settings_save', null, '系统设置已更新');
 
@@ -351,6 +396,28 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
             <input type="text" name="retry_status_codes" class="form-control" value="<?php echo e($retryStatusCodes); ?>" placeholder="502,503,504,529">
             <div class="form-hint">命中列表内的上游状态码才触发重试与下一个渠道，业务 4xx 一律不重试。</div>
         </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>模型级限流（次数/窗口）</label>
+                <input type="number" name="model_rate_limit" min="0" class="form-control" value="<?php echo e(isset($s['model_rate_limit']) ? $s['model_rate_limit'] : '0'); ?>" placeholder="0=关闭">
+            </div>
+            <div style="flex:1;">
+                <label>限流窗口（秒）</label>
+                <input type="number" name="model_rate_limit_window" min="1" class="form-control" value="<?php echo e(isset($s['model_rate_limit_window']) ? $s['model_rate_limit_window'] : '60'); ?>">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>成功请求限流（次数/窗口，0=关闭）</label>
+            <input type="number" name="model_success_rate_limit" min="0" class="form-control" value="<?php echo e(isset($s['model_success_rate_limit']) ? $s['model_success_rate_limit'] : '0'); ?>">
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">免费模型跳过预扣费</label>
+            <label class="ios-switch"><input type="checkbox" name="free_model_skip_deduct" value="1" <?php echo (isset($s['free_model_skip_deduct']) && $s['free_model_skip_deduct'] === '1') ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group">
+            <label>工具调用价格（JSON：{工具名:价格}，支持前缀如 web_search:gpt-4o*）</label>
+            <textarea name="tool_prices" class="form-control" rows="2" placeholder='{"web_search":0.005,"web_search_preview":0.005,"file_search":0.002}'><?php echo e(isset($s['tool_prices']) ? $s['tool_prices'] : ''); ?></textarea>
+        </div>
         <div class="form-group">
             <label>立即停用状态码（命中即停用该渠道，支持区间，留空仅按失败阈值）</label>
             <input type="text" name="auto_disable_status_codes" class="form-control" value="<?php echo e($autoDisableStatusCodes); ?>" placeholder="429,401">
@@ -456,6 +523,14 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
             <input type="text" name="cron_secret" class="form-control" value="<?php echo e($cronSecret); ?>" placeholder="配置后 HTTP 访问需带 ?key= 参数">
             <div class="form-hint">HTTP 方式：<?php echo e(base_url('tools/cron.php')); ?>?key=你的密钥；配置前仅可通过服务器命令行执行</div>
         </div>
+        <div class="form-group">
+            <label>信任重定向域名（逗号分隔，OAuth 回调验证，留空=不限制）</label>
+            <input type="text" name="trusted_redirect_domains" class="form-control" value="<?php echo e(isset($s['trusted_redirect_domains']) ? $s['trusted_redirect_domains'] : ''); ?>" placeholder="example.com,sub.example.com">
+        </div>
+        <div class="form-group">
+            <label>通知频率限制（次数/小时）</label>
+            <input type="number" name="notify_rate_limit" min="1" class="form-control" value="<?php echo e(isset($s['notify_rate_limit']) ? $s['notify_rate_limit'] : '60'); ?>">
+        </div>
     </div>
 
     <div class="card" style="max-width:720px;">
@@ -503,6 +578,53 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
                 <label>Bot 用户名</label>
                 <input type="text" name="oauth_telegram_bot_username" class="form-control" value="<?php echo e($oauthTelegramUsername); ?>" placeholder="如 my_bot">
             </div>
+        </div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用 Discord 登录</label>
+            <label class="ios-switch"><input type="checkbox" name="oauth_discord_enabled" value="1" <?php echo (isset($s['oauth_discord_enabled']) && $s['oauth_discord_enabled'] === '1') ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;"><label>Discord Client ID</label><input type="text" name="oauth_discord_client_id" class="form-control" value="<?php echo e(isset($s['oauth_discord_client_id']) ? $s['oauth_discord_client_id'] : ''); ?>"></div>
+            <div style="flex:1;"><label>Discord Client Secret</label><input type="text" name="oauth_discord_client_secret" class="form-control" value="<?php echo e(isset($s['oauth_discord_client_secret']) ? $s['oauth_discord_client_secret'] : ''); ?>"></div>
+        </div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用 LinuxDO 登录</label>
+            <label class="ios-switch"><input type="checkbox" name="oauth_linuxdo_enabled" value="1" <?php echo (isset($s['oauth_linuxdo_enabled']) && $s['oauth_linuxdo_enabled'] === '1') ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;"><label>LinuxDO Client ID</label><input type="text" name="oauth_linuxdo_client_id" class="form-control" value="<?php echo e(isset($s['oauth_linuxdo_client_id']) ? $s['oauth_linuxdo_client_id'] : ''); ?>"></div>
+            <div style="flex:1;"><label>LinuxDO Client Secret</label><input type="text" name="oauth_linuxdo_client_secret" class="form-control" value="<?php echo e(isset($s['oauth_linuxdo_client_secret']) ? $s['oauth_linuxdo_client_secret'] : ''); ?>"></div>
+        </div>
+        <div class="form-group"><label>LinuxDO Base URL</label><input type="text" name="oauth_linuxdo_base_url" class="form-control" value="<?php echo e(isset($s['oauth_linuxdo_base_url']) ? $s['oauth_linuxdo_base_url'] : 'https://connect.linux.do'); ?>"></div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用 OIDC 登录</label>
+            <label class="ios-switch"><input type="checkbox" name="oauth_oidc_enabled" value="1" <?php echo (isset($s['oauth_oidc_enabled']) && $s['oauth_oidc_enabled'] === '1') ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;"><label>OIDC Issuer URL</label><input type="text" name="oauth_oidc_issuer" class="form-control" value="<?php echo e(isset($s['oauth_oidc_issuer']) ? $s['oauth_oidc_issuer'] : ''); ?>" placeholder="https://auth.example.com"></div>
+            <div style="flex:1;"><label>OIDC Client ID</label><input type="text" name="oauth_oidc_client_id" class="form-control" value="<?php echo e(isset($s['oauth_oidc_client_id']) ? $s['oauth_oidc_client_id'] : ''); ?>"></div>
+        </div>
+        <div class="form-group"><label>OIDC Client Secret</label><input type="text" name="oauth_oidc_client_secret" class="form-control" value="<?php echo e(isset($s['oauth_oidc_client_secret']) ? $s['oauth_oidc_client_secret'] : ''); ?>"></div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用微信扫码登录</label>
+            <label class="ios-switch"><input type="checkbox" name="oauth_wechat_enabled" value="1" <?php echo (isset($s['oauth_wechat_enabled']) && $s['oauth_wechat_enabled'] === '1') ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;"><label>微信 App ID</label><input type="text" name="oauth_wechat_app_id" class="form-control" value="<?php echo e(isset($s['oauth_wechat_app_id']) ? $s['oauth_wechat_app_id'] : ''); ?>"></div>
+            <div style="flex:1;"><label>微信 App Secret</label><input type="text" name="oauth_wechat_app_secret" class="form-control" value="<?php echo e(isset($s['oauth_wechat_app_secret']) ? $s['oauth_wechat_app_secret'] : ''); ?>"></div>
+        </div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <div class="form-group"><label>支付合规确认</label>
+            <?php if (PayOrder::paymentComplianceConfirmed()) : ?>
+                <div class="alert alert-success">已确认（<?php echo e(isset($s['payment_compliance_at']) ? $s['payment_compliance_at'] : '-'); ?>）</div>
+            <?php else : ?>
+                <div class="alert alert-warning">尚未确认支付合规条款。启用支付前请确认。</div>
+                <button type="button" class="btn btn-sm" onclick="confirmCompliance()">确认合规</button>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -585,4 +707,21 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
         <button type="submit" class="btn">保存设置</button>
     </div>
 </form>
+<script>
+function confirmCompliance() {
+    LcyModal.open({
+        title: '确认支付合规',
+        message: '确认已阅读并同意支付相关合规条款？',
+        confirmText: '确认',
+        onConfirm: function () {
+            var form = document.getElementById('settingsForm');
+            if (!form) { form = document.querySelector('form[method="post"]'); }
+            var h = document.createElement('input');
+            h.type = 'hidden'; h.name = 'confirm_payment_compliance'; h.value = '1';
+            form.appendChild(h);
+            form.submit();
+        }
+    });
+}
+</script>
 <?php require dirname(__DIR__) . '/templates/footer.php'; ?>

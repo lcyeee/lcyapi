@@ -15,6 +15,8 @@ class Relay
     {
         self::$requestId = http_request_id();
         header('X-Lcyapi-Request-Id: ' . self::$requestId);
+        /* 防 CDN/代理缓存转发请求 */
+        header('Cache-Control: no-store');
 
         $auth = self::authenticate();
         if (!$auth['ok']) {
@@ -22,6 +24,11 @@ class Relay
         }
         $token = $auth['token'];
         $user = $auth['user'];
+
+        /* 模型级限流：按模型+分组 */
+        if (self::modelRateLimited($user, $token, $apiType)) {
+            return self::openaiError('模型请求过于频繁，请稍后再试', 'rate_limit_error', 'model_rate_limit_exceeded', 429, 60);
+        }
 
         $limit = (int)setting('api_rate_limit', config('security.api_rate_limit', 60));
         $window = (int)setting('api_rate_window', config('security.api_rate_window', 60));
@@ -78,8 +85,26 @@ class Relay
             $price['input_price'] = isset($price['input_price']) ? $price['input_price'] : 0;
         }
 
+        /* max_tokens 上限防溢出 */
+        $maxTokens = isset($payload['max_tokens']) ? (int)$payload['max_tokens'] : (isset($payload['max_completion_tokens']) ? (int)$payload['max_completion_tokens'] : 0);
+        $maxTokensLimit = 1073741823; /* MaxInt32/2 */
+        if ($maxTokens > $maxTokensLimit) {
+            return self::openaiError('max_tokens 超出上限', 'invalid_request_error', 'max_tokens_limit_exceeded', 400);
+        }
+
+        /* 工具调用计费（web_search 等内置工具按次计费） */
+        $toolCost = 0;
+        if (isset($payload['tools']) && is_array($payload['tools'])) {
+            $toolCost = self::calculateToolCost($payload['tools'], $model);
+        }
+
         $userGroup = isset($user['group']) && trim((string)$user['group']) !== '' ? (string)$user['group'] : 'default';
         $estimatedCost = self::estimateCost($apiType, $payload, $price) * Group::getUserGroupRatio($userGroup);
+        /* 免费模型（倍率为0）且预扣费关闭时，跳过余额检查 */
+        $freeModelSkipDeduct = setting('free_model_skip_deduct', '0') === '1';
+        if ($freeModelSkipDeduct && $estimatedCost <= 0) {
+            $estimatedCost = 0;
+        }
         if ((float)$user['quota'] < $estimatedCost) {
             return self::openaiError('账户余额不足，预估需要 $' . number_format($estimatedCost, 6), 'insufficient_quota', 'insufficient_user_quota', 403);
         }
@@ -158,6 +183,7 @@ class Relay
                 $completionTokens = $normUsage['completion_tokens'];
                 $cachedTokens = isset($normUsage['cached_tokens']) ? $normUsage['cached_tokens'] : 0;
                 $cost = self::computeCost($apiType, $payload, $price, $promptTokens, $completionTokens, $cachedTokens) * Group::getUserGroupRatio($userGroup, $lastSelectedGroup);
+                $cost += $toolCost; /* 工具调用附加费 */
                 self::settle($user, $token, $channel, $model, $apiType, $promptTokens, $completionTokens, $cost, $duration, true, null, $rawBody, $estimatedCost);
                 Channel::incrementSuccess((int)$channel['id']);
                 Affinity::pin($user['id'], $model, (int)$channel['id']);
@@ -758,5 +784,68 @@ class Relay
             }
         }
         unset($v);
+    }
+
+    /* ============ 模型级限流 ============ */
+    private static function modelRateLimited($user, $token, $apiType)
+    {
+        $modelRateLimit = (int)setting('model_rate_limit', '0');
+        $modelRateWindow = (int)setting('model_rate_limit_window', '60');
+        if ($modelRateLimit <= 0) {
+            return false;
+        }
+        $key = 'model_rate:' . (int)$token['id'] . ':' . $apiType;
+        if (!RateLimit::check($key, $modelRateLimit, $modelRateWindow)) {
+            return true;
+        }
+        /* 成功请求限流（仅统计成功的） */
+        $successRateLimit = (int)setting('model_success_rate_limit', '0');
+        if ($successRateLimit > 0) {
+            $successKey = 'model_success_rate:' . (int)$token['id'] . ':' . $apiType;
+            if (!RateLimit::check($successKey, $successRateLimit, $modelRateWindow)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /* ============ 工具调用计费 ============ */
+    private static function calculateToolCost($tools, $model)
+    {
+        $total = 0.0;
+        $toolPrices = setting('tool_prices', '');
+        if ($toolPrices === '') {
+            return 0;
+        }
+        $prices = json_decode(is_string($toolPrices) ? $toolPrices : '{}', true);
+        if (!is_array($prices)) {
+            return 0;
+        }
+        foreach ($tools as $tool) {
+            if (!is_array($tool)) {
+                continue;
+            }
+            $function = isset($tool['function']) ? $tool['function'] : [];
+            $name = isset($function['name']) ? $function['name'] : '';
+            if ($name === '') {
+                continue;
+            }
+            /* 精确匹配 */
+            if (isset($prices[$name])) {
+                $total += (float)$prices[$name];
+                continue;
+            }
+            /* 前缀匹配（如 web_search:gpt-4o*） */
+            foreach ($prices as $key => $val) {
+                if (strpos($key, $name . ':') === 0) {
+                    $pattern = substr($key, strlen($name) + 1);
+                    if (fnmatch($pattern, $model)) {
+                        $total += (float)$val;
+                        break;
+                    }
+                }
+            }
+        }
+        return $total;
     }
 }
