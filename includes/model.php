@@ -27,7 +27,7 @@ class Model
 
     public static function create($data)
     {
-        $fields = ['name', 'display_name', 'description', 'tags', 'input_price', 'output_price', 'context_length', 'max_output', 'type', 'enabled', 'sort'];
+        $fields = ['name', 'display_name', 'description', 'tags', 'input_price', 'output_price', 'cache_input_price', 'context_length', 'max_output', 'type', 'enabled', 'sort'];
         $insert = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {
@@ -52,7 +52,7 @@ class Model
 
     public static function update($id, $data)
     {
-        $fields = ['name', 'display_name', 'description', 'tags', 'input_price', 'output_price', 'context_length', 'max_output', 'type', 'enabled', 'sort'];
+        $fields = ['name', 'display_name', 'description', 'tags', 'input_price', 'output_price', 'cache_input_price', 'context_length', 'max_output', 'type', 'enabled', 'sort'];
         $update = [];
         foreach ($fields as $field) {
             if (array_key_exists($field, $data)) {

@@ -1,5 +1,6 @@
 <?php
 require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+require dirname(__DIR__, 2) . '/includes/model_presets.php';
 Admin::requireAdmin();
 $pageTitle = '模型管理';
 
@@ -98,6 +99,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         session_flash('flash_success', '已录入 ' . $created . ' 个缺失模型');
         audit_log('model_save_missing', null, 'count=' . $created);
+        redirect(base_url('admin/models/index.php'));
+    } elseif ($action === 'import_presets') {
+        $group = $_POST['preset_group'] ?? '';
+        $created = 0;
+        $updated = 0;
+        foreach (model_presets_all() as $key => $presetGroup) {
+            if ($key !== $group) {
+                continue;
+            }
+            foreach ($presetGroup['models'] as $name => $cfg) {
+                $data = [
+                    'name' => $name,
+                    'display_name' => '',
+                    'description' => '',
+                    'tags' => $presetGroup['label'],
+                    'input_price' => max(0, (float)$cfg['input']),
+                    'output_price' => max(0, (float)$cfg['output']),
+                    'cache_input_price' => isset($cfg['cache']) ? max(0, (float)$cfg['cache']) : -1,
+                    'context_length' => max(1, (int)$cfg['ctx']),
+                    'max_output' => max(0, (int)$cfg['maxout']),
+                    'type' => $cfg['type'],
+                    'enabled' => 1,
+                ];
+                $exist = Model::find($name);
+                if ($exist !== false) {
+                    $data['name'] = $exist['name'];
+                    Model::update((int)$exist['id'], $data);
+                    $updated++;
+                } elseif (Model::create($data)) {
+                    $created++;
+                }
+            }
+        }
+        session_flash('flash_success', '预设导入完成：新增 ' . $created . ' 个，更新 ' . $updated . ' 个（已存在的覆盖价格为预设值）');
+        audit_log('model_import_presets', null, 'group=' . $group . ' created=' . $created . ' updated=' . $updated);
         redirect(base_url('admin/models/index.php'));
     }
     redirect(base_url('admin/models/index.php'));
@@ -204,6 +240,24 @@ ksort($missingModels);
             <?php if ($edit !== false) : ?><a class="btn btn-secondary" href="<?php echo base_url('admin/models/index.php'); ?>">取消编辑</a><?php endif; ?>
         </div>
     </form>
+</div>
+
+<div class="card">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <span style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><?php echo svg_icon('coins'); ?>导入价格预设
+            <form method="post" action="<?php echo base_url('admin/models/index.php'); ?>" style="display:flex; gap:8px; align-items:center;">
+                <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+                <input type="hidden" name="action" value="import_presets">
+                <select name="preset_group" class="form-control" style="width:260px;">
+                    <?php foreach (model_presets_all() as $key => $presetGroup) : ?>
+                        <option value="<?php echo e($key); ?>"><?php echo e($presetGroup['label']); ?>（<?php echo count($presetGroup['models']); ?> 个模型）</option>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" class="btn btn-sm" data-confirm-title="导入价格预设" data-confirm-msg="将按预设价格批量新增模型，已存在的模型会覆盖价格与上下文，确定继续？" data-confirm-ok="导入">一键导入</button>
+            </form>
+        </span>
+        <span class="form-hint">内置主流模型官方定价（$ / 1K tokens，缓存价按模型开启）。价格可在下方表格二次调整。</span>
+    </div>
 </div>
 
 <?php if (!empty($missingModels)) : ?>
