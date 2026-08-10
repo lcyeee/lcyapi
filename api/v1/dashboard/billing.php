@@ -7,7 +7,7 @@
  */
 if (!defined('ROOT_PATH')) {
     define('API_REQUEST', true);
-    require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+    require dirname(__DIR__, 3) . '/includes/bootstrap.php';
 }
 
 $action = isset($_GET['billing_action']) ? $_GET['billing_action'] : '';

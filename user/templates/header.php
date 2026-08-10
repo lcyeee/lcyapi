@@ -30,15 +30,15 @@ function nav_active($needle, $requestPath)
             <?php echo e(setting('site_name', config('site.name'))); ?>
         </a>
         <nav>
-            <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>"><?php echo svg_icon('home'); ?>个人中心</a>
-            <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?>令牌管理</a>
-            <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
-            <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
+            <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>"><?php echo svg_icon('home'); ?><span class="lbl">个人中心</span></a>
+            <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?><span class="lbl">令牌管理</span></a>
+            <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?><span class="lbl">使用记录</span></a>
+            <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?><span class="lbl">钱包</span></a>
             <?php if (!$selfUse) : ?>
-                <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
+                <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?><span class="lbl">模型价格</span></a>
             <?php endif; ?>
             <?php if (Auth::isAdmin()) : ?>
-                <a class="admin-entry" href="<?php echo base_url('admin/index.php'); ?>"><?php echo svg_icon('shield'); ?>后台</a>
+                <a class="admin-entry" href="<?php echo base_url('admin/index.php'); ?>"><?php echo svg_icon('shield'); ?><span class="lbl">后台</span></a>
             <?php endif; ?>
         </nav>
         <div class="user-menu">
@@ -54,21 +54,42 @@ function nav_active($needle, $requestPath)
         <div class="layout">
             <aside class="sidebar">
                 <div class="menu">
-                    <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>"><?php echo svg_icon('home'); ?>个人中心</a>
-                    <a class="<?php echo nav_active('/user/profile/', $requestPath); ?>" href="<?php echo base_url('user/profile/index.php'); ?>"><?php echo svg_icon('user'); ?>个人资料</a>
-                    <a class="<?php echo nav_active('/user/profile/security', $requestPath); ?>" href="<?php echo base_url('user/profile/security.php'); ?>"><?php echo svg_icon('lock'); ?>账号安全</a>
-                    <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?>令牌管理</a>
-                    <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?>使用记录</a>
-                    <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?>钱包</a>
-            <?php if (!$selfUse) : ?>
-                    <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>"><?php echo svg_icon('gift'); ?>兑换码充值</a>
-            <?php endif; ?>
-            <a class="<?php echo nav_active('/user/subscriptions/', $requestPath); ?>" href="<?php echo base_url('user/subscriptions/index.php'); ?>"><?php echo svg_icon('crown'); ?>订阅套餐</a>
-            <a class="<?php echo nav_active('/user/playground/', $requestPath); ?>" href="<?php echo base_url('user/playground/index.php'); ?>"><?php echo svg_icon('message'); ?>Playground 测试</a>
-                    <?php if (!$selfUse) : ?>
-                        <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?>模型价格</a>
-                    <?php endif; ?>
-                    <a class="<?php echo nav_active('/user/appearance/', $requestPath); ?>" href="<?php echo base_url('user/appearance/index.php'); ?>"><?php echo svg_icon('eye'); ?>外观主题</a>
+                    <div class="menu-group" data-group="overview">
+                        <button type="button" class="group-title" aria-expanded="true"><span class="gt">概览</span><?php echo svg_icon('chevron', 'i group-arrow'); ?></button>
+                        <div class="group-body">
+                            <a class="<?php echo nav_active('/user/index.php', $requestPath); ?>" href="<?php echo base_url('user/index.php'); ?>"><?php echo svg_icon('home'); ?><span class="lbl">个人中心</span></a>
+                        </div>
+                    </div>
+                    <div class="menu-group" data-group="account">
+                        <button type="button" class="group-title" aria-expanded="true"><span class="gt">账号</span><?php echo svg_icon('chevron', 'i group-arrow'); ?></button>
+                        <div class="group-body">
+                            <a class="<?php echo nav_active('/user/profile/', $requestPath); ?>" href="<?php echo base_url('user/profile/index.php'); ?>"><?php echo svg_icon('user'); ?><span class="lbl">个人资料</span></a>
+                            <a class="<?php echo nav_active('/user/profile/security', $requestPath); ?>" href="<?php echo base_url('user/profile/security.php'); ?>"><?php echo svg_icon('lock'); ?><span class="lbl">账号安全</span></a>
+                            <a class="<?php echo nav_active('/user/sessions.php', $requestPath); ?>" href="<?php echo base_url('user/sessions.php'); ?>"><?php echo svg_icon('globe'); ?><span class="lbl">会话管理</span></a>
+                            <a class="<?php echo nav_active('/user/appearance/', $requestPath); ?>" href="<?php echo base_url('user/appearance/index.php'); ?>"><?php echo svg_icon('eye'); ?><span class="lbl">外观主题</span></a>
+                        </div>
+                    </div>
+                    <div class="menu-group" data-group="usage">
+                        <button type="button" class="group-title" aria-expanded="true"><span class="gt">使用</span><?php echo svg_icon('chevron', 'i group-arrow'); ?></button>
+                        <div class="group-body">
+                            <a class="<?php echo nav_active('/user/tokens/', $requestPath); ?>" href="<?php echo base_url('user/tokens/index.php'); ?>"><?php echo svg_icon('key'); ?><span class="lbl">令牌管理</span></a>
+                            <a class="<?php echo nav_active('/user/logs/', $requestPath); ?>" href="<?php echo base_url('user/logs/index.php'); ?>"><?php echo svg_icon('list'); ?><span class="lbl">使用记录</span></a>
+                            <a class="<?php echo nav_active('/user/wallet/', $requestPath); ?>" href="<?php echo base_url('user/wallet/index.php'); ?>"><?php echo svg_icon('wallet'); ?><span class="lbl">钱包</span></a>
+                <?php if (!$selfUse) : ?>
+                            <a class="<?php echo nav_active('/user/redeem/', $requestPath); ?>" href="<?php echo base_url('user/redeem/index.php'); ?>"><?php echo svg_icon('gift'); ?><span class="lbl">兑换码充值</span></a>
+                <?php endif; ?>
+                            <a class="<?php echo nav_active('/user/subscriptions/', $requestPath); ?>" href="<?php echo base_url('user/subscriptions/index.php'); ?>"><?php echo svg_icon('crown'); ?><span class="lbl">订阅套餐</span></a>
+                        </div>
+                    </div>
+                    <div class="menu-group" data-group="tools">
+                        <button type="button" class="group-title" aria-expanded="true"><span class="gt">工具</span><?php echo svg_icon('chevron', 'i group-arrow'); ?></button>
+                        <div class="group-body">
+                            <a class="<?php echo nav_active('/user/playground/', $requestPath); ?>" href="<?php echo base_url('user/playground/index.php'); ?>"><?php echo svg_icon('message'); ?><span class="lbl">Playground 测试</span></a>
+                <?php if (!$selfUse) : ?>
+                            <a class="<?php echo nav_active('/user/pricing/', $requestPath); ?>" href="<?php echo base_url('user/pricing/index.php'); ?>"><?php echo svg_icon('cpu'); ?><span class="lbl">模型价格</span></a>
+                <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
             </aside>
             <main class="main">
@@ -99,6 +120,35 @@ function nav_active($needle, $requestPath)
                             w.className = 'table-wrap';
                             t.parentNode.insertBefore(w, t);
                             w.appendChild(t);
+                        });
+                        /* 菜单分组折叠（默认折叠，localStorage 记忆展开的分组，当前激活分组自动展开） */
+                        var groups = document.querySelectorAll('.sidebar .menu-group');
+                        var storedExpanded = [];
+                        try {
+                            storedExpanded = (localStorage.getItem('lcyapi_user_menu_expanded') || '').split(',').filter(Boolean);
+                        } catch (e) { /* 忽略隐私模式 */ }
+                        groups.forEach(function (g) {
+                            var title = g.querySelector('.group-title');
+                            var key = g.getAttribute('data-group') || '';
+                            var collapsed = storedExpanded.indexOf(key) === -1 && !g.querySelector('a.active');
+                            g.classList.toggle('collapsed', collapsed);
+                            if (title) {
+                                title.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                                title.addEventListener('click', function () {
+                                    var nowCollapsed = !g.classList.contains('collapsed');
+                                    g.classList.toggle('collapsed', nowCollapsed);
+                                    title.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
+                                    var idx = storedExpanded.indexOf(key);
+                                    if (!nowCollapsed) {
+                                        if (idx === -1) { storedExpanded.push(key); }
+                                    } else if (idx !== -1) {
+                                        storedExpanded.splice(idx, 1);
+                                    }
+                                    try {
+                                        localStorage.setItem('lcyapi_user_menu_expanded', storedExpanded.join(','));
+                                    } catch (e2) { /* 忽略 */ }
+                                });
+                            }
                         });
                     });
                 </script>

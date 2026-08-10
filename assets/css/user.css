@@ -1,31 +1,30 @@
 /* =========================================================
- * 用户前台（iOS 风格 · 磨砂顶栏 · 移动端底部导航）
+ * 前台个人中心（new-api 风格 · 扁平卡片 · 移动端底部导航）
  * ========================================================= */
 
-/* ---------- 顶部导航（磨砂吸顶） ---------- */
+/* ---------- 顶栏 ---------- */
 .topbar {
-    background: var(--glass);
-    backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5);
-    border-bottom: 1px solid var(--glass-border);
     position: sticky; top: 0; z-index: 200;
+    background: var(--glass);
+    backdrop-filter: blur(14px) saturate(1.5); -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    border-bottom: 1px solid var(--border);
 }
-.topbar .container { display: flex; align-items: center; height: 56px; gap: 18px; }
-.topbar .brand { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -.3px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.topbar .brand .brand-logo {
-    width: 28px; height: 28px; border-radius: 8px; flex: none;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    display: inline-flex; align-items: center; justify-content: center; color: #fff;
-    box-shadow: 0 3px 9px var(--accent-border);
-}
+.topbar .container { height: 56px; display: flex; align-items: center; gap: 16px; }
+.topbar .brand { font-size: 16px; font-weight: 700; letter-spacing: -.3px; color: var(--text); display: flex; align-items: center; gap: 8px; text-decoration: none !important; }
+.topbar .brand .brand-logo { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: inline-flex; align-items: center; justify-content: center; color: #fff; }
 .topbar .brand .brand-logo .i { width: 15px; height: 15px; }
-.topbar nav { display: flex; gap: 3px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.topbar nav { display: flex; gap: 4px; margin-left: 4px; overflow-x: auto; scrollbar-width: none; }
 .topbar nav::-webkit-scrollbar { display: none; }
-.topbar nav a { color: var(--text-2); padding: 6px 12px; border-radius: 999px; font-size: 13.5px; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; transition: all .22s var(--ease); }
-.topbar nav a .i { width: 15px; height: 15px; }
-.topbar nav a:hover { background: var(--hover); color: var(--text); text-decoration: none; }
-.topbar nav a.active { color: var(--accent); font-weight: 600; background: var(--accent-soft); }
+.topbar nav a {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 8px; font-size: 13.5px; color: var(--text-2);
+    transition: all .18s var(--ease); white-space: nowrap; text-decoration: none !important;
+}
+.topbar nav a .i { width: 15px; height: 15px; opacity: .85; }
+.topbar nav a:hover { background: var(--hover); color: var(--text); }
+.topbar nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .topbar nav a.admin-entry { color: var(--yellow-text); }
-.topbar .user-menu { display: flex; align-items: center; gap: 9px; color: var(--text-2); flex: none; }
+.topbar .user-menu { display: flex; align-items: center; gap: 8px; color: var(--text-2); flex: none; }
 .topbar .user-menu .uname { font-size: 13px; white-space: nowrap; }
 
 /* 顶栏圆形图标按钮（.icon-btn 定义在 common.css） */
@@ -35,25 +34,34 @@
 .layout { display: flex; gap: 18px; }
 .sidebar { width: 200px; flex-shrink: 0; }
 .sidebar .menu {
-    background: var(--card); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--glass-border); border-radius: var(--radius);
-    box-shadow: var(--shadow); overflow: hidden; padding: 7px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    overflow: hidden; padding: 7px;
     position: sticky; top: 72px;
 }
 .sidebar .menu a {
     display: flex; align-items: center; gap: 9px;
-    padding: 9px 12px; margin-bottom: 2px;
-    color: var(--text-2); border-radius: var(--radius-sm); font-size: 13.5px;
-    transition: all .22s var(--ease);
+    padding: 8px 12px; margin-bottom: 1px;
+    color: var(--text-2); border-radius: 8px; font-size: 13.5px;
+    transition: all .18s var(--ease); min-height: 34px;
 }
 .sidebar .menu a .i { width: 16px; height: 16px; opacity: .85; }
+.sidebar .menu a .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar .menu a:hover { background: var(--hover); color: var(--text); text-decoration: none; }
-.sidebar .menu a:active { transform: scale(.97); }
-.sidebar .menu a.active {
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    color: #fff; font-weight: 600; box-shadow: 0 3px 12px var(--accent-border);
-}
+.sidebar .menu a:active { transform: scale(.98); }
+.sidebar .menu a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .sidebar .menu a.active .i { opacity: 1; }
+.sidebar .menu .menu-group { margin-bottom: 2px; }
+.sidebar .menu .group-title {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    background: none; border: 0; cursor: pointer; text-align: left; font-family: inherit;
+    padding: 11px 12px 5px; font-size: 11px; font-weight: 500; color: var(--text-3); letter-spacing: 1.2px;
+    transition: color .2s var(--ease);
+}
+.sidebar .menu .group-title:hover { color: var(--text-2); }
+.sidebar .menu .group-arrow { width: 12px; height: 12px; opacity: .5; flex: none; transition: transform .25s var(--ease); }
+.sidebar .menu .menu-group.collapsed .group-arrow { transform: rotate(-90deg); opacity: .35; }
+.sidebar .menu .menu-group.collapsed .group-body { display: none; }
 .main { flex: 1; min-width: 0; }
 
 /* ---------- 余额卡片 ---------- */
@@ -88,15 +96,15 @@
     .user-tabbar {
         display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 280;
         background: var(--glass);
-        backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5);
-        border-top: 1px solid var(--glass-border);
+        backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5);
+        border-top: 1px solid var(--border);
         padding: 5px 4px calc(5px + env(safe-area-inset-bottom));
         justify-content: space-around;
     }
     .user-tabbar a {
         flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
-        padding: 4px 2px; font-size: 10.5px; color: var(--text-3); border-radius: 10px;
-        transition: all .2s var(--ease); text-decoration: none;
+        padding: 6px 2px; font-size: 10.5px; color: var(--text-3); border-radius: 10px;
+        transition: all .2s var(--ease); text-decoration: none; min-height: 48px; justify-content: center;
     }
     .user-tabbar a .i { width: 21px; height: 21px; }
     .user-tabbar a.active { color: var(--accent); font-weight: 600; }

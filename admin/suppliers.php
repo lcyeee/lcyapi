@@ -65,7 +65,7 @@ if ($action === 'save_supplier') {
 
 $suppliers = DB::fetchAll('SELECT * FROM suppliers ORDER BY id ASC');
 $deployments = DB::fetchAll('SELECT d.*, s.name AS supplier_name FROM deployments d LEFT JOIN suppliers s ON s.id=d.supplier_id ORDER BY d.id ASC');
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title"><?php echo svg_icon('plus'); ?>新增/编辑供应商</div>
@@ -154,4 +154,4 @@ function editSupplier(id, name, url, key, desc) {
     form.closest('.card').scrollIntoView({ behavior: 'smooth' });
 }
 </script>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

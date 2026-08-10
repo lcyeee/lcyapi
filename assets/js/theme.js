@@ -10,13 +10,13 @@
     var THEME_KEY = 'lcy_theme';   // 预设ID 或 custom
     var COLOR_KEY = 'lcy_colors';  // 自定义色 JSON
 
-    // 5 套预设配色模板（浅蓝 / 极简白 / 薄荷绿 / 淡紫 / 深空灰）
+    // 5 套预设配色模板（new-api 风格：中性底 + 主题色点缀）
     var PRESETS = {
-        ice:   { name: '浅冰蓝',  accent: '#409EFF', accent2: '#66B1FF', accent3: '#94CFFF', bg: '#E8F4FF', bgDark: '#0E141D' },
-        white: { name: '极简白',  accent: '#5B8DEF', accent2: '#7FA8F5', accent3: '#B3CBF9', bg: '#F5F7FA', bgDark: '#11151C' },
-        mint:  { name: '薄荷绿',  accent: '#34C78B', accent2: '#5BD6A5', accent3: '#9AE7C7', bg: '#EDFBF4', bgDark: '#0C1613' },
-        lilac: { name: '淡紫',    accent: '#8B7CF6', accent2: '#A79BF8', accent3: '#CBC4FB', bg: '#F3F1FE', bgDark: '#121019' },
-        space: { name: '深空灰',  accent: '#64748B', accent2: '#7D8CA1', accent3: '#A8B4C4', bg: '#EEF1F4', bgDark: '#0B0D10' }
+        ice:   { name: '浅冰蓝',  accent: '#3B82F6', accent2: '#60A5FA', accent3: '#93C5FD', bg: '#F6F7F9', bgDark: '#17181C' },
+        white: { name: '极简白',  accent: '#5B8DEF', accent2: '#7FA8F5', accent3: '#B3CBF9', bg: '#F6F7F9', bgDark: '#17181C' },
+        mint:  { name: '薄荷绿',  accent: '#10B981', accent2: '#34D399', accent3: '#6EE7B7', bg: '#F6F7F9', bgDark: '#17181C' },
+        lilac: { name: '淡紫',    accent: '#8B5CF6', accent2: '#A78BFA', accent3: '#C4B5FD', bg: '#F6F7F9', bgDark: '#17181C' },
+        space: { name: '深空灰',  accent: '#64748B', accent2: '#94A3B8', accent3: '#CBD5E1', bg: '#F6F7F9', bgDark: '#17181C' }
     };
     var DEFAULT_PRESET = 'ice';
 

@@ -57,6 +57,11 @@ class Relay
             if (!empty($hits)) {
                 return self::openaiError('请求内容包含敏感词：' . implode('、', array_slice($hits, 0, 5)), 'invalid_request_error', 'sensitive_content', 400);
             }
+        } else {
+            /* multipart：PHP 已解析 $_POST（model/prompt/n/size 等文本字段），文件体经 php://input 原样转发 */
+            foreach ($_POST as $key => $val) {
+                $payload[$key] = $val;
+            }
         }
 
         if ($urlModel !== null) {
@@ -112,7 +117,8 @@ class Relay
         }
         /* 饱和保护：防止 float 乘积溢出导致负数 */
         $estimatedCost = max(0, min($estimatedCost, 2147483647));
-        if ((float)$user['quota'] < $estimatedCost) {
+        $availablePool = (float)$user['quota'] + (float)Subscription::poolBalance((int)$user['id']);
+        if ($availablePool < $estimatedCost) {
             return self::openaiError('账户余额不足，预估需要 $' . number_format($estimatedCost, 6), 'insufficient_quota', 'insufficient_user_quota', 403);
         }
 
@@ -647,8 +653,13 @@ class Relay
         DB::begin();
         try {
             if ($status) {
-                if ($cost > 0 && !User::deductQuota((int)$user['id'], $cost)) {
-                    throw new Exception('扣费失败：余额不足');
+                if ($cost > 0) {
+                    /* 订阅池优先扣费（剩余部分回退钱包） */
+                    $subscriptionCharged = Subscription::charge((int)$user['id'], $cost, $requestId);
+                    $walletCost = $cost - $subscriptionCharged;
+                    if ($walletCost > 0 && !User::deductQuota((int)$user['id'], $walletCost)) {
+                        throw new Exception('扣费失败：余额不足');
+                    }
                 }
                 if ($cost > 0) {
                     Token::charge((int)$token['id'], $cost);

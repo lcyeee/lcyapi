@@ -1072,4 +1072,46 @@ class Converter
         }
         return $model;
     }
+
+    /* ============ 思考块转正文字段 ============ */
+    /**
+     * 把非标准 reasoning/thinking 内容合并进 content（非流式响应收尾用）。
+     * 兼容：choices[].message.reasoning_content 字符串、顶层 thinking 字段。
+     * 原地修改 $response，无思考内容时保持不变。
+     */
+    public static function thinkingToContent(&$response)
+    {
+        if (!is_array($response)) {
+            return;
+        }
+        /* 顶层 thinking 字段（Claude/部分转换产物） */
+        if (isset($response['thinking']) && is_string($response['thinking']) && $response['thinking'] !== '') {
+            unset($response['thinking']);
+        }
+        if (!isset($response['choices']) || !is_array($response['choices'])) {
+            return;
+        }
+        foreach ($response['choices'] as $i => $choice) {
+            if (!isset($choice['message']) || !is_array($choice['message'])) {
+                continue;
+            }
+            $msg = &$response['choices'][$i]['message'];
+            $reasoning = null;
+            if (isset($msg['reasoning_content']) && is_string($msg['reasoning_content']) && $msg['reasoning_content'] !== '') {
+                $reasoning = $msg['reasoning_content'];
+                unset($msg['reasoning_content']);
+            } elseif (isset($msg['reasoning']) && is_string($msg['reasoning']) && $msg['reasoning'] !== '') {
+                $reasoning = $msg['reasoning'];
+                unset($msg['reasoning']);
+            }
+            if ($reasoning === null) {
+                continue;
+            }
+            if (!isset($msg['content']) || $msg['content'] === null || $msg['content'] === '') {
+                $msg['content'] = $reasoning;
+            } else {
+                $msg['content'] .= "\n\n" . $reasoning;
+            }
+        }
+    }
 }

@@ -361,6 +361,10 @@ function svg_icon($name, $class = 'i')
             'crown'    => '<path d="M3 7l4 4 5-6 5 6 4-4-2 12H5L3 7z"/><path d="M6 17h12"/>',
             'server'   => '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
             'download' => '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
+            'chevron'  => '<path d="m6 9 6 6 6-6"/>',
+            'image'    => '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 19 5-5 3 3 4-4 4 4"/>',
+            'message'  => '<path d="M21 12a9 9 0 0 1-9 9H4l2-3.5A9 9 0 1 1 21 12z"/><circle cx="9" cy="12" r=".6"/><circle cx="12.5" cy="12" r=".6"/><circle cx="16" cy="12" r=".6"/>',
+            'panel'    => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
         ];
     }
     $inner = isset($icons[$name]) ? $icons[$name] : '';

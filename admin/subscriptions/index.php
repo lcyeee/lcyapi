@@ -12,20 +12,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'save') {
             $name = mb_substr(trim($_POST['name'] ?? ''), 0, 50);
             $description = mb_substr(trim($_POST['description'] ?? ''), 0, 255);
+            $subtitle = mb_substr(trim($_POST['subtitle'] ?? ''), 0, 100);
             $quota = max(0, (float)($_POST['quota'] ?? 0));
             $price = max(0, (float)($_POST['price'] ?? 0));
             $days = max(1, (int)($_POST['days'] ?? 30));
             $status = empty($_POST['status']) ? 0 : 1;
             $sort = (int)($_POST['sort'] ?? 0);
+            $maxPurchase = max(0, (int)($_POST['max_purchase_per_user'] ?? 0));
+            $upgradeGroup = mb_substr(trim($_POST['upgrade_group'] ?? ''), 0, 32);
+            $downgradeGroup = mb_substr(trim($_POST['downgrade_group'] ?? ''), 0, 32);
+            $stripePriceId = mb_substr(trim($_POST['stripe_price_id'] ?? ''), 0, 100);
+            $creemProductId = mb_substr(trim($_POST['creem_product_id'] ?? ''), 0, 100);
+            $waffoProductId = mb_substr(trim($_POST['waffo_product_id'] ?? ''), 0, 100);
             if ($name === '') {
                 $error = '套餐名称不能为空';
             } else {
+                $data = compact('name', 'description', 'subtitle', 'quota', 'price', 'days', 'status', 'sort', 'max_purchase_per_user', 'upgrade_group', 'downgrade_group', 'stripe_price_id', 'creem_product_id', 'waffo_product_id');
                 if ($id > 0) {
-                    DB::update('subscription_plans', compact('name', 'description', 'quota', 'price', 'days', 'status', 'sort'), 'id = ?', [$id]);
+                    DB::update('subscription_plans', $data, 'id = ?', [$id]);
                     audit_log('plan_update', "#{$id} " . $name);
                     session_flash('flash_success', '套餐已更新');
                 } else {
-                    DB::insert('subscription_plans', compact('name', 'description', 'quota', 'price', 'days', 'status', 'sort'));
+                    DB::insert('subscription_plans', $data);
                     audit_log('plan_create', $name);
                     session_flash('flash_success', '套餐已创建');
                 }
@@ -126,6 +134,10 @@ $pageTitle = '订阅套餐';
             <label>说明</label>
             <input type="text" name="description" class="form-control" value="<?php echo e($editPlan !== false ? $editPlan['description'] : ''); ?>">
         </div>
+        <div class="form-group">
+            <label>副标题</label>
+            <input type="text" name="subtitle" class="form-control" value="<?php echo e($editPlan !== false ? $editPlan['subtitle'] : ''); ?>" placeholder="用户端卡片上的短描述">
+        </div>
         <div class="form-group" style="display:flex; gap:16px;">
             <div style="flex:1;">
                 <label>周期额度（$）</label>
@@ -150,6 +162,34 @@ $pageTitle = '订阅套餐';
                 <span>上架</span>
             </div>
         </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>限购次数（0 不限）</label>
+                <input type="number" name="max_purchase_per_user" min="0" class="form-control" value="<?php echo e($editPlan !== false ? (int)$editPlan['max_purchase_per_user'] : '0'); ?>">
+            </div>
+            <div style="flex:1;">
+                <label>升级分组（留空不升级）</label>
+                <input type="text" name="upgrade_group" class="form-control" value="<?php echo e($editPlan !== false ? $editPlan['upgrade_group'] : ''); ?>" placeholder="如 pro">
+            </div>
+            <div style="flex:1;">
+                <label>到期降级分组（留空恢复原分组）</label>
+                <input type="text" name="downgrade_group" class="form-control" value="<?php echo e($editPlan !== false ? $editPlan['downgrade_group'] : ''); ?>" placeholder="如 default">
+            </div>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>Stripe Price ID</label>
+                <input type="text" name="stripe_price_id" class="form-control" value="<?php echo e($editPlan !== false ? $editPlan['stripe_price_id'] : ''); ?>">
+            </div>
+            <div style="flex:1;">
+                <label>Creem Product ID</label>
+                <input type="text" name="creem_product_id" class="form-control" value="<?php echo e($editPlan !== false ? $editPlan['creem_product_id'] : ''); ?>">
+            </div>
+            <div style="flex:1;">
+                <label>Waffo Product ID</label>
+                <input type="text" name="waffo_product_id" class="form-control" value="<?php echo e($editPlan !== false ? $editPlan['waffo_product_id'] : ''); ?>">
+            </div>
+        </div>
         <div class="form-actions">
             <button type="submit" class="btn">保存</button>
             <?php if ($editPlan !== false) : ?>
@@ -162,10 +202,10 @@ $pageTitle = '订阅套餐';
 <div class="card">
     <div class="card-title">用户订阅（<?php echo count($subs); ?> 条，最近 100）</div>
     <table class="table">
-        <thead><tr><th>ID</th><th>用户</th><th>套餐</th><th>开始</th><th>到期</th><th>状态</th><th>操作</th></tr></thead>
+        <thead><tr><th>ID</th><th>用户</th><th>套餐</th><th>开始</th><th>到期</th><th>订阅额度</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>
         <?php if (empty($subs)) : ?>
-            <tr><td colspan="7" class="text-center text-muted">暂无用户订阅</td></tr>
+            <tr><td colspan="8" class="text-center text-muted">暂无用户订阅</td></tr>
         <?php endif; ?>
         <?php foreach ($subs as $sub) : ?>
             <tr>
@@ -174,6 +214,7 @@ $pageTitle = '订阅套餐';
                 <td><?php echo e($sub['plan_name'] ?: '#' . $sub['plan_id']); ?></td>
                 <td><?php echo e($sub['start_at']); ?></td>
                 <td><?php echo e($sub['end_at']); ?></td>
+                <td><?php echo $sub['quota_left'] !== null ? e(quota_display((float)$sub['quota_left'])) : '-'; ?></td>
                 <td><?php echo $sub['status'] ? '<span class="badge badge-green">有效</span>' : '<span class="badge badge-gray">已过期</span>'; ?></td>
                 <td>
                     <?php if ($sub['status']) : ?>

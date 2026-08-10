@@ -11,4 +11,4 @@ if (!is_array($payload)) {
     exit;
 }
 /* 直接转发到 /v1/responses */
-require __DIR__ . '/responses.php';
+require dirname(__DIR__) . '/responses.php';

@@ -1,7 +1,6 @@
 <?php
 if (!defined('ROOT_PATH')) {
-    define('ROOT_PATH', dirname(__DIR__, 2));
-    require ROOT_PATH . '/includes/bootstrap.php';
+    require dirname(__DIR__, 2) . '/includes/bootstrap.php';
 }
 Auth::requireLogin();
 
@@ -62,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 }
 
 $user = Auth::user();
-$models = Model::allEnabled();
+$models = Model::all(true);
 $playKey = isset($_SESSION['playground_key']) ? (string)$_SESSION['playground_key'] : '';
 $pageTitle = 'Playground 测试';
 require dirname(__DIR__) . '/templates/header.php';

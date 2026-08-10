@@ -295,12 +295,19 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(255) DEFAULT NULL,
+    subtitle VARCHAR(100) DEFAULT NULL COMMENT '副标题',
     quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000 COMMENT '周期额度',
     price DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
     days INT UNSIGNED NOT NULL DEFAULT 30 COMMENT '有效期天数',
     status TINYINT NOT NULL DEFAULT 1,
     sort INT NOT NULL DEFAULT 0,
     quota_reset_period VARCHAR(20) DEFAULT NULL COMMENT 'never/daily/weekly/monthly',
+    max_purchase_per_user INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '限购次数，0 不限',
+    upgrade_group VARCHAR(32) DEFAULT NULL COMMENT '购买后升级到的分组',
+    downgrade_group VARCHAR(32) DEFAULT NULL COMMENT '到期后降级到的分组',
+    stripe_price_id VARCHAR(100) DEFAULT NULL,
+    creem_product_id VARCHAR(100) DEFAULT NULL,
+    waffo_product_id VARCHAR(100) DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -315,9 +322,81 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     quota_left DECIMAL(14,6) DEFAULT NULL,
     last_reset_at DATETIME DEFAULT NULL,
     allow_wallet_overflow TINYINT NOT NULL DEFAULT 1,
+    upgrade_group VARCHAR(32) DEFAULT NULL COMMENT '本单升级分组（快照）',
+    prev_user_group VARCHAR(32) DEFAULT NULL COMMENT '购买前分组（快照）',
+    downgrade_group VARCHAR(32) DEFAULT NULL COMMENT '到期降级分组（快照）',
+    purchase_count INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '购买次数（限购用）',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_user (user_id),
     KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS subscription_billing (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    request_id VARCHAR(64) NOT NULL COMMENT '请求 ID（幂等键）',
+    user_id INT UNSIGNED NOT NULL,
+    subscription_amount DECIMAL(14,6) NOT NULL DEFAULT 0.000000 COMMENT '本请求从订阅池扣费额',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_request_id (request_id),
+    KEY idx_user (user_id),
+    KEY idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    task_id VARCHAR(64) NOT NULL COMMENT '对外暴露的 task_ 前缀 ID',
+    platform VARCHAR(30) NOT NULL COMMENT 'midjourney/suno/video',
+    user_id INT UNSIGNED NOT NULL,
+    `group` VARCHAR(50) DEFAULT NULL COMMENT '计费用分组',
+    channel_id INT UNSIGNED NOT NULL DEFAULT 0,
+    quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000 COMMENT '预扣/结算额度',
+    action VARCHAR(40) DEFAULT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'NOT_START' COMMENT 'NOT_START/SUBMITTED/QUEUED/IN_PROGRESS/FAILURE/SUCCESS',
+    fail_reason VARCHAR(500) DEFAULT NULL,
+    submit_time INT UNSIGNED NOT NULL DEFAULT 0,
+    start_time INT UNSIGNED NOT NULL DEFAULT 0,
+    finish_time INT UNSIGNED NOT NULL DEFAULT 0,
+    progress VARCHAR(20) NOT NULL DEFAULT '0%',
+    properties TEXT DEFAULT NULL COMMENT 'JSON: input/upstream_model_name/origin_model_name',
+    private_data TEXT DEFAULT NULL COMMENT 'JSON 计费快照（key/upstream_task_id/result_url/billing_context）',
+    data TEXT DEFAULT NULL COMMENT 'JSON 任务数据',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_task_id (task_id),
+    KEY idx_user (user_id),
+    KEY idx_platform_status (platform, status),
+    KEY idx_submit_time (submit_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS midjourneys (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code INT NOT NULL DEFAULT 1,
+    user_id INT UNSIGNED NOT NULL,
+    action VARCHAR(40) NOT NULL,
+    mj_id VARCHAR(100) DEFAULT NULL COMMENT '上游 MJ 任务 ID',
+    prompt TEXT DEFAULT NULL,
+    prompt_en TEXT DEFAULT NULL,
+    description TEXT DEFAULT NULL,
+    state VARCHAR(100) DEFAULT NULL,
+    submit_time INT UNSIGNED NOT NULL DEFAULT 0,
+    start_time INT UNSIGNED NOT NULL DEFAULT 0,
+    finish_time INT UNSIGNED NOT NULL DEFAULT 0,
+    image_url VARCHAR(500) DEFAULT NULL,
+    video_url VARCHAR(500) DEFAULT NULL,
+    video_urls TEXT DEFAULT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'NOT_START',
+    progress VARCHAR(30) NOT NULL DEFAULT '0%',
+    fail_reason VARCHAR(500) DEFAULT NULL,
+    channel_id INT UNSIGNED NOT NULL DEFAULT 0,
+    quota DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
+    buttons TEXT DEFAULT NULL,
+    properties TEXT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_user (user_id),
+    KEY idx_mj_id (mj_id),
+    KEY idx_status (status),
+    KEY idx_submit_time (submit_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS system_tasks (
@@ -342,6 +421,7 @@ INSERT INTO system_tasks (name, type, status, `interval`) VALUES
 ('上游模型自动同步', 'sync_upstream_models', 1, 86400),
 ('清理过期令牌', 'clean_expired_tokens', 1, 86400),
 ('Midjourney 轮询', 'midjourney_poll', 1, 30),
+('Suno 轮询', 'suno_poll', 1, 30),
 ('订阅额度重置', 'reset_subscriptions', 1, 3600),
 ('模型倍率同步', 'sync_ratios', 1, 21600);
 

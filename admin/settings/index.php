@@ -218,6 +218,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setting_set('oauth_allow_register', $oauthAllowRegister);
     setting_set('oauth_allowed_domains', $oauthAllowedDomains);
     setting_set('ratio_sync_url', $ratioSyncUrl);
+    $mjEnabled = empty($_POST['midjourney_enabled']) ? '0' : '1';
+    $mjProxyUrl = rtrim(mb_substr(trim($_POST['midjourney_proxy_url'] ?? ''), 0, 200), '/');
+    $mjApiKey = mb_substr(trim($_POST['midjourney_api_key'] ?? ''), 0, 200);
+    $mjNotifyHook = rtrim(mb_substr(trim($_POST['midjourney_notify_hook'] ?? ''), 0, 200), '/');
+    $mjCharge = max(0, (float)($_POST['midjourney_charge'] ?? 0));
+    $mjModeClear = empty($_POST['midjourney_mode_clear']) ? '0' : '1';
+
+    setting_set('midjourney_enabled', $mjEnabled);
+    setting_set('midjourney_proxy_url', $mjProxyUrl);
+    if ($mjApiKey !== '') {
+        setting_set('midjourney_api_key', $mjApiKey);
+    }
+    setting_set('midjourney_notify_hook', $mjNotifyHook);
+    setting_set('midjourney_charge', (string)$mjCharge);
+    setting_set('midjourney_mode_clear', $mjModeClear);
+    $sunoEnabled = empty($_POST['suno_enabled']) ? '0' : '1';
+    $sunoProxyUrl = rtrim(mb_substr(trim($_POST['suno_proxy_url'] ?? ''), 0, 200), '/');
+    $sunoApiKey = mb_substr(trim($_POST['suno_api_key'] ?? ''), 0, 200);
+    $sunoCharge = max(0, (float)($_POST['suno_charge'] ?? 0));
+
+    setting_set('suno_enabled', $sunoEnabled);
+    setting_set('suno_proxy_url', $sunoProxyUrl);
+    if ($sunoApiKey !== '') {
+        setting_set('suno_api_key', $sunoApiKey);
+    }
+    setting_set('suno_charge', (string)$sunoCharge);
 
     audit_log('settings_save', null, '系统设置已更新');
 
@@ -293,6 +319,16 @@ $checkinBonusStep = isset($s['checkin_bonus_step']) ? $s['checkin_bonus_step'] :
 $autoDisableStatusCodes = isset($s['auto_disable_status_codes']) ? $s['auto_disable_status_codes'] : '';
 $autoDisableKeywords = isset($s['auto_disable_keywords']) ? $s['auto_disable_keywords'] : '';
 $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] : '';
+$mjEnabled = isset($s['midjourney_enabled']) ? $s['midjourney_enabled'] : '0';
+$mjProxyUrl = isset($s['midjourney_proxy_url']) ? $s['midjourney_proxy_url'] : '';
+$mjApiKey = isset($s['midjourney_api_key']) ? $s['midjourney_api_key'] : '';
+$mjNotifyHook = isset($s['midjourney_notify_hook']) ? $s['midjourney_notify_hook'] : '';
+$mjCharge = isset($s['midjourney_charge']) ? $s['midjourney_charge'] : '0';
+$mjModeClear = isset($s['midjourney_mode_clear']) ? $s['midjourney_mode_clear'] : '0';
+$sunoEnabled = isset($s['suno_enabled']) ? $s['suno_enabled'] : '0';
+$sunoProxyUrl = isset($s['suno_proxy_url']) ? $s['suno_proxy_url'] : '';
+$sunoApiKey = isset($s['suno_api_key']) ? $s['suno_api_key'] : '';
+$sunoCharge = isset($s['suno_charge']) ? $s['suno_charge'] : '0';
 ?>
 <?php require dirname(__DIR__) . '/templates/header.php'; ?>
 
@@ -793,6 +829,70 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
             <label>Stripe Webhook 密钥（whsec_…，留空则不启用 Webhook）</label>
             <input type="text" name="stripe_webhook_secret" class="form-control" value="<?php echo e($stripeWebhookSecret); ?>">
             <div class="form-hint">Webhook 地址：<?php echo e(base_url('api/pay/stripe_webhook.php')); ?></div>
+        </div>
+    </div>
+
+    <div class="card" style="max-width:720px;">
+        <div class="card-title">Midjourney 绘图</div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用 Midjourney（外部 MJ-Proxy 服务）</label>
+            <label class="ios-switch"><input type="checkbox" name="midjourney_enabled" value="1" <?php echo $mjEnabled === '1' ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>MJ-Proxy 服务地址</label>
+                <input type="text" name="midjourney_proxy_url" class="form-control" value="<?php echo e($mjProxyUrl); ?>" placeholder="如 https://mj.example.com">
+                <div class="form-hint">需支持 /mj/submit/{action} 与 /mj/task/{id}/fetch 接口</div>
+            </div>
+            <div style="flex:1;">
+                <label>mj-api-secret 密钥</label>
+                <input type="text" name="midjourney_api_key" class="form-control" value="" placeholder="留空保持不变">
+                <div class="form-hint">当前已配置：<?php echo $mjApiKey !== '' ? '是（' . strlen($mjApiKey) . ' 位）' : '否'; ?></div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>任务回调地址（notifyHook，可选）</label>
+            <input type="text" name="midjourney_notify_hook" class="form-control" value="<?php echo e($mjNotifyHook); ?>" placeholder="如 <?php echo e(base_url('mj/notify')); ?>">
+            <div class="form-hint">MJ-Proxy 任务完成时会 POST 到此地址；不配置则依赖 cron 轮询（系统任务「Midjourney 轮询」）</div>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>单次绘图费用（额度）</label>
+                <input type="number" name="midjourney_charge" step="0.000001" min="0" class="form-control" value="<?php echo e($mjCharge); ?>">
+                <div class="form-hint">提交时预扣，失败自动退款；0 为免费</div>
+            </div>
+            <div style="flex:1; display:flex; align-items:flex-end; padding-bottom:4px;">
+                <label class="ios-switch" style="margin:0;">
+                    <input type="checkbox" name="midjourney_mode_clear" value="1" <?php echo $mjModeClear === '1' ? 'checked' : ''; ?>>
+                    <span></span>
+                </label>
+                <span style="margin-left:8px;">清除 --fast/--relax/--turbo 模式参数</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="max-width:720px;">
+        <div class="card-title">Suno 音乐</div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">启用 Suno（外部 Suno-GoAPI 服务）</label>
+            <label class="ios-switch"><input type="checkbox" name="suno_enabled" value="1" <?php echo $sunoEnabled === '1' ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>Suno-GoAPI 服务地址</label>
+                <input type="text" name="suno_proxy_url" class="form-control" value="<?php echo e($sunoProxyUrl); ?>" placeholder="如 https://suno.example.com">
+                <div class="form-hint">需支持 /suno/submit/{action} 与 /suno/fetch/{id} 接口</div>
+            </div>
+            <div style="flex:1;">
+                <label>API 密钥（Bearer）</label>
+                <input type="text" name="suno_api_key" class="form-control" value="" placeholder="留空保持不变">
+                <div class="form-hint">当前已配置：<?php echo $sunoApiKey !== '' ? '是（' . strlen($sunoApiKey) . ' 位）' : '否'; ?></div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>单次生成费用（额度）</label>
+            <input type="number" name="suno_charge" step="0.000001" min="0" class="form-control" value="<?php echo e($sunoCharge); ?>">
+            <div class="form-hint">提交时预扣，失败自动退款；0 为免费</div>
         </div>
     </div>
 

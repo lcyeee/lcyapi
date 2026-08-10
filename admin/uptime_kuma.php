@@ -19,7 +19,7 @@ if ($monitorUrl !== '') {
         $error = '无法获取状态（HTTP ' . $code . '）';
     }
 }
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title"><?php echo svg_icon('server'); ?>Uptime Kuma 状态</div>
@@ -47,4 +47,4 @@ require dirname(__DIR__) . '/templates/header.php';
         </table>
     <?php endif; ?>
 </div>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

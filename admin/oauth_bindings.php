@@ -21,7 +21,7 @@ if ($q !== '') {
     $params[] = '%' . $q . '%';
 }
 $bindings = DB::fetchAll('SELECT ob.*, u.username FROM oauth_bindings ob LEFT JOIN users u ON u.id=ob.user_id WHERE ' . $where . ' ORDER BY ob.id DESC LIMIT 200', $params);
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -55,4 +55,4 @@ require dirname(__DIR__) . '/templates/header.php';
         </tbody>
     </table>
 </div>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

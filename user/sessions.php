@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_verify()) {
 }
 
 $sessions = DB::fetchAll('SELECT * FROM user_sessions WHERE user_id = ? ORDER BY last_active_at DESC', [$user['id']]);
-require dirname(__DIR__) . '/templates/header.php';
+require 'templates/header.php';
 ?>
 <div class="card">
     <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -63,4 +63,4 @@ require dirname(__DIR__) . '/templates/header.php';
         </tbody>
     </table>
 </div>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require 'templates/footer.php'; ?>

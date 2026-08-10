@@ -17,6 +17,76 @@ if (isset($_GET['slow'])) {
     sleep(3);
 }
 
+if (strpos($path, '/mj/submit/') !== false || strpos($path, '/mj/task/') !== false) {
+    header('Content-Type: application/json');
+    $storage = __DIR__ . '/../data/cache/mock-mj.json';
+    $tasks = is_file($storage) ? json_decode(file_get_contents($storage), true) : [];
+    if (!is_array($tasks)) {
+        $tasks = [];
+    }
+    if (strpos($path, '/mj/submit/') !== false) {
+        $action = substr($path, strrpos($path, '/') + 1);
+        $mjId = 'mock-mj-' . strtoupper(substr(bin2hex(random_bytes(6)), 0, 12));
+        $tasks[$mjId] = ['id' => $mjId, 'action' => strtoupper($action), 'status' => 'SUBMITTED', 'progress' => '0%', 'submitTime' => time(), 'prompt' => isset($payload['prompt']) ? $payload['prompt'] : ''];
+        file_put_contents($storage, json_encode($tasks, JSON_UNESCAPED_UNICODE));
+        echo json_encode(['code' => 1, 'description' => '提交成功', 'result' => $mjId], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if (preg_match('#/mj/task/([^/]+)/fetch$#', $path, $m)) {
+        $mjId = $m[1];
+        if (!isset($tasks[$mjId])) {
+            http_response_code(404);
+            echo json_encode(['code' => 2, 'description' => '任务不存在'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $t = $tasks[$mjId];
+        if ($t['status'] === 'SUBMITTED') {
+            $t['status'] = 'SUCCESS';
+            $t['progress'] = '100%';
+            $t['imageUrl'] = 'http://127.0.0.1:9001/mock-mj-image-' . $mjId . '.png';
+            $t['finishTime'] = time();
+            $tasks[$mjId] = $t;
+            file_put_contents($storage, json_encode($tasks, JSON_UNESCAPED_UNICODE));
+        }
+        echo json_encode($t, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
+if (strpos($path, '/suno/submit/') !== false || strpos($path, '/suno/fetch/') !== false) {
+    header('Content-Type: application/json');
+    $storage = __DIR__ . '/../data/cache/mock-suno.json';
+    $tasks = is_file($storage) ? json_decode(file_get_contents($storage), true) : [];
+    if (!is_array($tasks)) {
+        $tasks = [];
+    }
+    if (strpos($path, '/suno/submit/') !== false) {
+        $taskId = 'suno-' . strtoupper(substr(bin2hex(random_bytes(8)), 0, 16));
+        $tasks[$taskId] = ['task_id' => $taskId, 'status' => 'submitted', 'submit_time' => time()];
+        file_put_contents($storage, json_encode($tasks, JSON_UNESCAPED_UNICODE));
+        echo json_encode(['code' => 1, 'message' => '提交成功', 'data' => ['task_id' => $taskId]], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if (preg_match('#/suno/fetch/([^/]+)$#', $path, $m)) {
+        $taskId = $m[1];
+        if (!isset($tasks[$taskId])) {
+            http_response_code(404);
+            echo json_encode(['code' => 2, 'message' => '任务不存在'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $t = $tasks[$taskId];
+        if ($t['status'] === 'submitted' || $t['status'] === 'processing' || $t['status'] === 'queueing') {
+            $t['status'] = 'success';
+            $t['finish_time'] = time();
+            $t['clips'] = ['mock-clip-1' => ['id' => 'mock-clip-1', 'audio_url' => 'http://127.0.0.1:9001/mock-song-' . $taskId . '.mp3', 'image_url' => 'http://127.0.0.1:9001/mock-song-' . $taskId . '.png', 'title' => 'Mock Song', 'status' => 'complete']];
+            $tasks[$taskId] = $t;
+            file_put_contents($storage, json_encode($tasks, JSON_UNESCAPED_UNICODE));
+        }
+        echo json_encode(['code' => 1, 'message' => 'ok', 'data' => $t], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
 if (strpos($path, '/models') !== false) {
     header('Content-Type: application/json');
     $mockModels = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'text-embedding-3-small', 'text-embedding-3-large', 'dall-e-3', 'whisper-1', 'tts-1', 'claude-3-5-sonnet', 'gemini-2.0-flash'];

@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $presets = ChatPreset::all();
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title"><?php echo svg_icon('send'); ?>新增聊天预设</div>
@@ -88,4 +88,4 @@ require dirname(__DIR__) . '/templates/header.php';
         </tbody>
     </table>
 </div>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

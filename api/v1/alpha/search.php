@@ -3,8 +3,12 @@
  * /v1/alpha/search - 联网搜索端点（简版 Alpha Search）
  * 接收 OpenAI 聊天请求，追加搜索结果后转发
  */
-define('API_REQUEST', true);
-require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+if (!defined('API_REQUEST')) {
+    define('API_REQUEST', true);
+}
+if (!defined('ROOT_PATH')) {
+    require dirname(__DIR__, 3) . '/includes/bootstrap.php';
+}
 
 $rawBody = file_get_contents('php://input');
 $payload = json_decode($rawBody, true);
@@ -58,4 +62,4 @@ if ($searchResults !== '') {
 $payload['stream'] = false;
 
 /* 转发到 relay */
-require dirname(__DIR__, 2) . '/api/v1/chat/completions.php';
+require dirname(__DIR__, 3) . '/api/v1/chat/completions.php';

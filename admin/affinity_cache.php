@@ -2,7 +2,7 @@
 /**
  * Channels Affinity 缓存管理
  */
-require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+require dirname(__DIR__) . '/includes/bootstrap.php';
 Admin::requireAdmin();
 $pageTitle = '渠道亲和性缓存';
 
@@ -14,7 +14,7 @@ if (isset($_POST['clear']) && csrf_verify()) {
 
 $total = (int)DB::value('SELECT COUNT(*) FROM channel_affinity');
 $stats = DB::fetchAll('SELECT ca.channel_id, c.name AS channel_name, COUNT(*) AS n, MAX(ca.pinned_at) AS last_pin FROM channel_affinity ca LEFT JOIN channels c ON c.id=ca.channel_id GROUP BY ca.channel_id ORDER BY n DESC LIMIT 20');
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -34,4 +34,4 @@ require dirname(__DIR__) . '/templates/header.php';
         </tbody>
     </table>
 </div>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

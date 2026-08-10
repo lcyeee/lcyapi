@@ -2,7 +2,7 @@
 /**
  * 2FA 统计与管理员管理
  */
-require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+require dirname(__DIR__) . '/includes/bootstrap.php';
 Admin::requireAdmin();
 $pageTitle = '2FA 统计';
 
@@ -19,7 +19,7 @@ $stats = [
     'total' => (int)DB::value("SELECT COUNT(*) FROM users WHERE role != 'admin'"),
 ];
 $users = DB::fetchAll("SELECT id, username, totp_enabled, email FROM users WHERE totp_enabled = 1 ORDER BY id DESC LIMIT 100");
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title">2FA 启用统计</div>
@@ -47,4 +47,4 @@ require dirname(__DIR__) . '/templates/header.php';
         </tbody>
     </table>
 </div>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

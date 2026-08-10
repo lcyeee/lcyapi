@@ -1,7 +1,7 @@
 <?php
 if (!defined('ROOT_PATH')) {
     define('API_REQUEST', true);
-    require dirname(__DIR__) . '/includes/bootstrap.php';
+    require dirname(__DIR__, 2) . '/includes/bootstrap.php';
 }
 
 $path = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
@@ -18,7 +18,7 @@ if (($segments[0] ?? '') !== 'models') {
 
 /* GET /v1beta/models 模型列表（Gemini 格式） */
 if (!isset($segments[1]) || $segments[1] === '') {
-    $models = Model::allEnabled();
+    $models = Model::all(true);
     $list = [];
     foreach ($models as $m) {
         $list[] = [

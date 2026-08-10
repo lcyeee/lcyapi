@@ -66,6 +66,12 @@ function task_midjourney_poll(&$result)
     $result .= "Midjourney 轮询：更新 {$updated} 个任务；";
 }
 
+function task_suno_poll(&$result)
+{
+    $updated = Suno::pollPending();
+    $result .= "Suno 轮询：更新 {$updated} 个任务；";
+}
+
 function task_reset_subscriptions(&$result)
 {
     /* 重置应重置的订阅额度（按额度重置周期） */
@@ -86,9 +92,11 @@ function task_reset_subscriptions(&$result)
             $resetCount++;
         }
     }
-    /* 订阅到期标记 */
-    $expired = DB::query("UPDATE user_subscriptions SET status = 0 WHERE status = 1 AND end_at < NOW()")->rowCount();
-    $result .= "订阅重置 {$resetCount} 个，到期标记 {$expired} 个；";
+    /* 订阅到期标记 + 降级分组恢复 */
+    $expired = Subscription::expireDue();
+    /* 幂等扣费记录保留 7 天后清理 */
+    $cleaned = DB::query("DELETE FROM subscription_billing WHERE created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)")->rowCount();
+    $result .= "订阅重置 {$resetCount} 个，到期处理 {$expired} 个，清理幂等记录 {$cleaned} 条；";
 }
 
 function task_auto_health(&$result)

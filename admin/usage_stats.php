@@ -6,7 +6,7 @@ $pageTitle = '用量统计';
 $days = max(1, min(365, (int)($_GET['days'] ?? 30)));
 $data = UsageData::byDate($days);
 $users = UsageData::byUser(20, $days);
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -53,4 +53,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

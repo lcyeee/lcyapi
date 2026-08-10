@@ -2,7 +2,7 @@
 $path = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '/';
 $path = rtrim($path, '/');
 
-$isApi = strncmp($path, '/v1/', 4) === 0 || strncmp($path, '/v1beta', 7) === 0;
+$isApi = strncmp($path, '/v1/', 4) === 0 || strncmp($path, '/v1beta', 7) === 0 || strncmp($path, '/mj', 3) === 0 || strncmp($path, '/suno', 5) === 0;
 if ($isApi) {
     define('API_REQUEST', true);
 }
@@ -36,6 +36,28 @@ if ($isApi) {
         system_instances_heartbeat();
         if (strncmp($path, '/v1beta', 7) === 0) {
         $file = API_PATH . '/v1beta.php';
+        if (is_file($file)) {
+            require $file;
+            exit;
+        }
+        http_response_code(404);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => ['message' => 'Not Found', 'type' => 'invalid_request_error', 'code' => 'route_not_found']], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if (strncmp($path, '/mj', 3) === 0) {
+        $file = API_PATH . '/mj.php';
+        if (is_file($file)) {
+            require $file;
+            exit;
+        }
+        http_response_code(404);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => ['message' => 'Not Found', 'type' => 'invalid_request_error', 'code' => 'route_not_found']], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if (strncmp($path, '/suno', 5) === 0) {
+        $file = API_PATH . '/suno.php';
         if (is_file($file)) {
             require $file;
             exit;

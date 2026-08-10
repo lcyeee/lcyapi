@@ -2,7 +2,7 @@
 /**
  * 预填充分组管理：渠道/模型创建时的下拉预设
  */
-require dirname(__DIR__, 2) . '/includes/bootstrap.php';
+require dirname(__DIR__) . '/includes/bootstrap.php';
 Admin::requireAdmin();
 $pageTitle = '预填充分组';
 
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_verify()) {
 }
 
 $groups = DB::fetchAll('SELECT * FROM prefill_groups ORDER BY type, id ASC');
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title"><?php echo svg_icon('plus'); ?>新增预填充分组</div>
@@ -72,4 +72,4 @@ require dirname(__DIR__) . '/templates/header.php';
         </tbody>
     </table>
 </div>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>

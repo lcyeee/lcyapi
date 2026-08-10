@@ -14,27 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect(base_url('user/subscriptions/index.php'));
     }
     $userId = Auth::id();
-    DB::begin();
-    try {
-        $ok = User::addQuota($userId, (float)$plan['quota'], 'subscribe', '开通套餐：' . $plan['name'], null, null);
-        if (!$ok) {
-            throw new Exception('入账失败');
-        }
-        DB::insert('user_subscriptions', [
-            'user_id' => $userId,
-            'plan_id' => $planId,
-            'start_at' => date('Y-m-d H:i:s'),
-            'end_at' => date('Y-m-d H:i:s', time() + (int)$plan['days'] * 86400),
-            'status' => 1,
-        ]);
-        DB::commit();
-        session_flash('flash_success', '开通成功：套餐「' . $plan['name'] . '」，额度 $' . number_format((float)$plan['quota'], 4) . ' 已到账');
-        redirect(base_url('user/subscriptions/index.php'));
-    } catch (Exception $ex) {
-        DB::rollback();
-        session_flash('flash_error', '开通失败：' . $ex->getMessage());
-        redirect(base_url('user/subscriptions/index.php'));
+    $result = Subscription::activate($userId, $planId);
+    if ($result['ok']) {
+        session_flash('flash_success', '开通成功：套餐「' . $plan['name'] . '」，订阅额度 ' . quota_display((float)$plan['quota']) . ' 已到账');
+    } else {
+        session_flash('flash_error', '开通失败：' . $result['msg']);
     }
+    redirect(base_url('user/subscriptions/index.php'));
 }
 
 $activeSub = DB::fetch('SELECT us.*, p.name AS plan_name FROM user_subscriptions us LEFT JOIN subscription_plans p ON p.id = us.plan_id WHERE us.user_id = ? AND us.status = 1 ORDER BY us.id DESC LIMIT 1', [Auth::id()]);
@@ -46,10 +32,13 @@ $plans = DB::fetchAll('SELECT * FROM subscription_plans WHERE status = 1 ORDER B
     <?php if ($activeSub !== false) : ?>
         <div class="alert alert-success">
             <?php echo svg_icon('check'); ?>
-            当前订阅：<strong><?php echo e($activeSub['plan_name']); ?></strong>，有效期至 <strong><?php echo e($activeSub['end_at']); ?></strong>
+            当前订阅：<strong><?php echo e($activeSub['plan_name']); ?></strong>，有效期至 <strong><?php echo e($activeSub['end_at']); ?></strong>，可用订阅额度 <strong><?php echo e(quota_display((float)$activeSub['quota_left'])); ?></strong>
         </div>
+        <?php if ($activeSub['upgrade_group'] !== null && $activeSub['upgrade_group'] !== '') : ?>
+            <div class="alert alert-info">订阅期间已升级到分组「<?php echo e($activeSub['upgrade_group']); ?>」<?php echo $activeSub['downgrade_group'] !== null && $activeSub['downgrade_group'] !== '' ? '，到期后降级为「' . e($activeSub['downgrade_group']) . '」' : ''; ?></div>
+        <?php endif; ?>
     <?php else : ?>
-        <div class="alert alert-info">暂无有效订阅，选购下方套餐开通后立即到账对应额度。</div>
+        <div class="alert alert-info">暂无有效订阅。订阅后的额度将进入「订阅额度池」，API 调用优先从订阅池扣费。</div>
     <?php endif; ?>
 </div>
 
@@ -62,9 +51,15 @@ $plans = DB::fetchAll('SELECT * FROM subscription_plans WHERE status = 1 ORDER B
         <?php foreach ($plans as $plan) : ?>
             <div class="plan-card" style="background:var(--card-2); border:1px solid var(--border); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:10px;">
                 <div style="font-size:17px; font-weight:600;"><?php echo e($plan['name']); ?></div>
-                <?php if ($plan['description']) : ?><div style="color:var(--text-2); font-size:13px;"><?php echo e($plan['description']); ?></div><?php endif; ?>
-                <div style="font-size:24px; font-weight:700;">$<?php echo e(number_format((float)$plan['price'], 2)); ?><span style="font-size:13px; color:var(--text-2); font-weight:400;"> / <?php echo (int)$plan['days']; ?>天</span></div>
-                <div style="color:var(--text-2); font-size:13px;">含额度 $<?php echo e(number_format((float)$plan['quota'], 4)); ?>，开通即到账</div>
+                <?php if ($plan['subtitle']) : ?><div style="color:var(--text-2); font-size:13px;"><?php echo e($plan['subtitle']); ?></div><?php elseif ($plan['description']) : ?><div style="color:var(--text-2); font-size:13px;"><?php echo e($plan['description']); ?></div><?php endif; ?>
+                <div style="font-size:24px; font-weight:700;"><?php echo e(quota_display((float)$plan['price'])); ?><span style="font-size:13px; color:var(--text-2); font-weight:400;"> / <?php echo (int)$plan['days']; ?>天</span></div>
+                <div style="color:var(--text-2); font-size:13px;">订阅额度 <?php echo e(quota_display((float)$plan['quota'])); ?>，API 调用优先扣订阅池</div>
+                <?php if ($plan['upgrade_group'] !== '') : ?>
+                    <div style="color:var(--text-2); font-size:13px;">购买后升级分组：<span class="badge"><?php echo e($plan['upgrade_group']); ?></span></div>
+                <?php endif; ?>
+                <?php if ((int)$plan['max_purchase_per_user'] > 0) : ?>
+                    <div style="color:var(--text-2); font-size:12px;">该套餐限购 <?php echo (int)$plan['max_purchase_per_user']; ?> 次</div>
+                <?php endif; ?>
                 <form method="post" action="<?php echo base_url('user/subscriptions/index.php'); ?>" style="margin-top:auto;"
                       data-confirm-title="开通套餐" data-confirm-msg="确认开通「<?php echo e($plan['name']); ?>」？额度将立即到账。" data-confirm-ok="立即开通">
                     <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">

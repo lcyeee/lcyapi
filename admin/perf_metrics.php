@@ -6,7 +6,7 @@ $pageTitle = '性能指标';
 $hours = max(1, min(168, (int)($_GET['hours'] ?? 24)));
 $metrics = PerfMetrics::query('', '', $hours);
 $summary = PerfMetrics::summary($hours);
-require dirname(__DIR__) . '/templates/header.php';
+require __DIR__ . '/templates/header.php';
 ?>
 <div class="card">
     <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -37,4 +37,4 @@ require dirname(__DIR__) . '/templates/header.php';
         </tbody>
     </table>
 </div>
-<?php require dirname(__DIR__) . '/templates/footer.php'; ?>
+<?php require __DIR__ . '/templates/footer.php'; ?>
