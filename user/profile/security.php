@@ -1,6 +1,5 @@
 <?php
 require dirname(__DIR__, 2) . '/includes/bootstrap.php';
-require dirname(__DIR__) . '/templates/header.php';
 
 $errors = [];
 $info = '';
@@ -17,19 +16,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'generate_secret') {
             $secret = TOTP::generateSecret();
             $_SESSION['2fa_setup_secret'] = $secret;
-            $_SESSION['2fa_setup_backup'] = TOTP::generateBackupCodes();
+            $_SESSION['2fa_setup_backup'] = TOTP::generateBackupCodes($uid);
             redirect(base_url('user/profile/security.php'));
         } elseif ($action === 'enable_2fa') {
             if ($setupSecret === '') {
                 $errors[] = '请先点击「生成密钥」';
             } elseif (TOTP::verify($setupSecret, trim($_POST['code'] ?? ''))) {
-                $backupHashes = array_map(function ($c) {
-                    return password_hash($c, PASSWORD_DEFAULT);
-                }, $setupBackupCodes);
+                if (empty($setupBackupCodes)) {
+                    $setupBackupCodes = TOTP::generateBackupCodes($uid);
+                }
                 User::update($uid, [
                     'totp_secret' => $setupSecret,
                     'totp_enabled' => 1,
-                    'backup_codes' => json_encode(array_values($backupHashes)),
                 ]);
                 unset($_SESSION['2fa_setup_secret'], $_SESSION['2fa_setup_backup']);
                 audit_log('user_enable_2fa', 'user#' . $uid);
@@ -44,16 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = '验证码错误，无法关闭两步验证';
             } else {
                 User::update($uid, ['totp_secret' => null, 'totp_enabled' => 0, 'backup_codes' => null]);
+                DB::delete('backup_codes', 'user_id = ?', [$uid]);
                 audit_log('user_disable_2fa', 'user#' . $uid);
                 session_flash('flash_success', '两步验证已关闭');
                 redirect(base_url('user/profile/security.php'));
             }
         } elseif ($action === 'regenerate_backup') {
-            $codes = TOTP::generateBackupCodes();
-            $hashes = array_map(function ($c) {
-                return password_hash($c, PASSWORD_DEFAULT);
-            }, $codes);
-            User::update($uid, ['backup_codes' => json_encode(array_values($hashes))]);
+            $codes = TOTP::generateBackupCodes($uid);
             $info = '新备份码（只显示一次，请立即保存）：<br><strong style="letter-spacing:1px;">' . e(implode('　', $codes)) . '</strong>';
         } elseif ($action === 'revoke_session') {
             $result = Auth::revokeSession((int)($_POST['session_id'] ?? 0), $uid);
@@ -78,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+require dirname(__DIR__) . '/templates/header.php';
 $user = Auth::user();
 $sessions = DB::fetchAll('SELECT * FROM user_sessions WHERE user_id = ? ORDER BY last_active_at DESC', [Auth::id()]);
 $bindings = DB::fetchAll('SELECT * FROM oauth_bindings WHERE user_id = ?', [Auth::id()]);

@@ -9,6 +9,7 @@ $pageTitle = '2FA 统计';
 if (isset($_POST['reset_2fa']) && csrf_verify()) {
     $uid = (int)$_POST['uid'];
     DB::update('users', ['totp_enabled' => 0, 'totp_secret' => null, 'backup_codes' => null], 'id = ?', [$uid]);
+    DB::delete('backup_codes', 'user_id = ?', [$uid]);
     audit_log('admin_reset_2fa', "user#$uid");
     session_flash('flash_success', '已重置用户 2FA');
     redirect(base_url('admin/twofa_stats.php'));
