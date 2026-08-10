@@ -482,13 +482,22 @@ class Auth
             return ['ok' => false, 'msg' => '今天已签到'];
         }
         $reward = (float)setting('checkin_reward', '0');
-        /* 连续签到：昨天签过则 +1，否则重新计 1；奖励递增按每日加成，封顶 7 天 */
+        /* 随机签到奖励：开启后每天在 min~max 范围内随机（基础奖励仍参与递增） */
+        if (setting('checkin_random_reward', '0') === '1') {
+            $min = max(0, (float)setting('checkin_reward_min', '0'));
+            $max = max(0, (float)setting('checkin_reward_max', '0'));
+            if ($max > $min) {
+                $reward = round($min + mt_rand() / mt_getrandmax() * ($max - $min), 6);
+            }
+        }
+        /* 连续签到：昨天签过则 +1，否则重新计 1；奖励递增按每日加成，封顶天数可配置 */
         $yesterday = date('Y-m-d', strtotime('-1 day'));
         $streakBase = (int)DB::value('SELECT checkin_streak FROM users WHERE id = ?', [(int)$userId]);
         $prevDay = DB::value('SELECT id FROM checkins WHERE user_id = ? AND checkin_date = ?', [(int)$userId, $yesterday]);
         $streak = $prevDay !== null ? $streakBase + 1 : 1;
         $bonusStep = (float)setting('checkin_bonus_step', '0');
-        $bonusDays = max(0, min($streak - 1, 6));
+        $bonusCap = max(1, (int)setting('checkin_bonus_max_days', '7'));
+        $bonusDays = max(0, min($streak - 1, $bonusCap - 1));
         $reward = round($reward + $bonusDays * $bonusStep, 6);
         DB::begin();
         try {

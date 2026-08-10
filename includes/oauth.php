@@ -79,18 +79,31 @@ class OAuth
     {
         $state = bin2hex(random_bytes(16));
         $_SESSION['oauth_state'] = $state;
+        /* 缓存记录 state，回调时校验存在性（防重放：用一次即删） */
+        Cache::set('oauth_state:' . $state, time(), 600);
         return $state;
     }
 
     /**
-     * 校验回调 state，防止 CSRF
+     * 校验回调 state，防止 CSRF 与重放
      */
     public static function verifyState()
     {
         $stored = isset($_SESSION['oauth_state']) ? $_SESSION['oauth_state'] : '';
         $given = isset($_GET['state']) ? (string)$_GET['state'] : '';
+        $given = $given !== '' ? $given : (isset($_GET['return_to']) && strpos((string)$_GET['return_to'], 'lcyapi_oauth_') === 0 ? substr((string)$_GET['return_to'], strlen('lcyapi_oauth_')) : '');
+        if ($stored === '' || $given === '' || !hash_equals($stored, $given)) {
+            unset($_SESSION['oauth_state']);
+            return false;
+        }
+        /* 防重放：state 必须存在于缓存且只能使用一次 */
+        if (Cache::get('oauth_state:' . $given) === null) {
+            unset($_SESSION['oauth_state']);
+            return false;
+        }
+        Cache::delete('oauth_state:' . $given);
         unset($_SESSION['oauth_state']);
-        return $stored !== '' && $given !== '' && hash_equals($stored, $given);
+        return true;
     }
 
     /**
@@ -333,6 +346,18 @@ class OAuth
         }
         if (!setting('register_enabled', '1')) {
             return ['ok' => false, 'msg' => '注册已关闭，无法通过第三方登录创建账号'];
+        }
+        if (setting('oauth_allow_register', '1') !== '1') {
+            return ['ok' => false, 'msg' => '第三方登录仅限已有账号绑定，请先注册后绑定'];
+        }
+        /* OAuth 注册邮箱域名白名单（逗号分隔），空=不限制；无邮箱的提供商（Telegram 等）直接放行 */
+        $domainList = trim((string)setting('oauth_allowed_domains', ''));
+        if ($domainList !== '' && !empty($info['email'])) {
+            $emailDomain = strtolower(substr(strrchr(strtolower($info['email']), '@'), 1));
+            $allowed = array_map('trim', explode(',', strtolower($domainList)));
+            if (!in_array($emailDomain, $allowed, true)) {
+                return ['ok' => false, 'msg' => '该第三方账号邮箱域名不在允许注册范围内'];
+            }
         }
         /* 自动创建账号 */
         $username = $info['username'] !== '' ? $info['username'] : $provider . '_' . substr($openid, 0, 8);

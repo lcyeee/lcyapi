@@ -84,9 +84,153 @@ class Rankings
             'total_cost' => round($totalCost, 6),
             'total_tokens' => $totalTokens,
             'total_calls' => count($logs),
+            'top_movers' => self::topMovers($period),
+            'top_droppers' => self::topDroppers($period),
+            'history' => self::history($period),
         ];
         Cache::set($cacheKey, $result, 300);
         return $result;
+    }
+
+    /**
+     * 排名上升最快的模型（对比上一周期）
+     */
+    private static function topMovers($period)
+    {
+        $cur = self::rankByCost($period);
+        list($from, $to) = self::prevPeriod($period);
+        $prev = self::rankByRange($from, $to);
+        $deltas = [];
+        $rankOf = function ($map) {
+            $out = [];
+            $i = 0;
+            foreach ($map as $name => $cost) {
+                $out[$name] = ++$i;
+            }
+            return $out;
+        };
+        $curRanks = $rankOf($cur);
+        $prevRanks = $rankOf($prev);
+        foreach ($curRanks as $name => $r) {
+            if (isset($prevRanks[$name]) && $prevRanks[$name] > 0) {
+                $delta = $prevRanks[$name] - $r;
+                if ($delta > 0) {
+                    $deltas[$name] = $delta;
+                }
+            }
+        }
+        arsort($deltas);
+        $out = [];
+        foreach (array_slice($deltas, 0, 6, true) as $name => $delta) {
+            $out[] = ['name' => $name, 'delta' => $delta, 'direction' => 'up'];
+        }
+        return $out;
+    }
+
+    /**
+     * 排名下降最快的模型（对比上一周期）
+     */
+    private static function topDroppers($period)
+    {
+        $cur = self::rankByCost($period);
+        list($from, $to) = self::prevPeriod($period);
+        $prev = self::rankByRange($from, $to);
+        $deltas = [];
+        $rankOf = function ($map) {
+            $out = [];
+            $i = 0;
+            foreach ($map as $name => $cost) {
+                $out[$name] = ++$i;
+            }
+            return $out;
+        };
+        $curRanks = $rankOf($cur);
+        $prevRanks = $rankOf($prev);
+        foreach ($curRanks as $name => $r) {
+            if (isset($prevRanks[$name]) && $prevRanks[$name] > 0) {
+                $delta = $r - $prevRanks[$name];
+                if ($delta > 0) {
+                    $deltas[$name] = $delta;
+                }
+            }
+        }
+        arsort($deltas);
+        $out = [];
+        foreach (array_slice($deltas, 0, 6, true) as $name => $delta) {
+            $out[] = ['name' => $name, 'delta' => $delta, 'direction' => 'down'];
+        }
+        return $out;
+    }
+
+    /**
+     * 历史趋势：按时间桶聚合 Top 模型用量
+     */
+    private static function history($period)
+    {
+        $since = self::periodStart($period);
+        $now = time();
+        $bucketCount = 7;
+        $topModels = array_slice(array_keys(self::rankByCost($period)), 0, 10);
+        $interval = max(1, floor(($now - strtotime($since)) / $bucketCount));
+        $buckets = [];
+        for ($i = 0; $i < $bucketCount; $i++) {
+            $label = date('m-d', $since == date('Y-m-d 00:00:00', $now) ? $now - ($bucketCount - 1 - $i) * $interval : strtotime($since) + $i * $interval);
+            $values = [];
+            foreach ($topModels as $m) { $values[$m] = 0.0; }
+            $buckets[] = ['label' => $label, 'values' => $values];
+        }
+        $rows = DB::fetchAll('SELECT model, DATE(created_at) AS d, COALESCE(SUM(cost),0) AS c FROM logs WHERE created_at >= ? AND status=1 GROUP BY model, DATE(created_at)', [$since]);
+        foreach ($rows as $row) {
+            if (!isset($buckets[0]['values'][$row['model']])) {
+                continue;
+            }
+            $idx = (int)floor((strtotime($row['d']) - strtotime($since)) / max(1, $interval));
+            if ($idx < 0) { $idx = 0; }
+            if ($idx >= $bucketCount) { $idx = $bucketCount - 1; }
+            $buckets[$idx]['values'][$row['model']] = (float)$row['c'];
+        }
+        return $buckets;
+    }
+
+    private static function rankByCost($period)
+    {
+        $since = self::periodStart($period);
+        $rows = DB::fetchAll('SELECT model, COALESCE(SUM(cost),0) AS c FROM logs WHERE created_at >= ? AND status=1 GROUP BY model ORDER BY c DESC', [$since]);
+        $map = [];
+        foreach ($rows as $r) { $map[$r['model']] = (float)$r['c']; }
+        return $map;
+    }
+
+    private static function prevPeriod($period)
+    {
+        $end = strtotime(date('Y-m-d 00:00:00'));
+        switch ($period) {
+            case 'today':
+                $start = $end - 86400;
+                break;
+            case 'month':
+                $start = $end - 30 * 86400;
+                break;
+            case 'year':
+                $start = $end - 365 * 86400;
+                break;
+            case 'week':
+            default:
+                $start = $end - 7 * 86400;
+                break;
+        }
+        return [date('Y-m-d 00:00:00', $start), date('Y-m-d 23:59:59', $end - 1)];
+    }
+
+    /**
+     * 上一周期费用排行（按时间段查询）
+     */
+    private static function rankByRange($from, $to)
+    {
+        $rows = DB::fetchAll('SELECT model, COALESCE(SUM(cost),0) AS c FROM logs WHERE created_at >= ? AND created_at < ? AND status=1 GROUP BY model ORDER BY c DESC', [$from, $to]);
+        $map = [];
+        foreach ($rows as $r) { $map[$r['model']] = (float)$r['c']; }
+        return $map;
     }
 
     private static function periodStart($period)

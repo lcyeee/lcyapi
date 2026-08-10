@@ -60,4 +60,46 @@ require dirname(__DIR__) . '/templates/header.php';
         </tbody>
     </table>
 </div>
+<div class="card">
+    <div class="card-title">涨跌榜（排名对比上期）</div>
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:280px;">
+            <div class="card-title" style="color:var(--success);">上升最快</div>
+            <?php if (empty($data['top_movers'])): ?><p class="text-muted">暂无数据</p><?php endif; ?>
+            <?php foreach ($data['top_movers'] as $m) : ?>
+                <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border);">
+                    <span><?php echo e($m['name']); ?></span>
+                    <span style="color:var(--success);">▲ <?php echo (int)$m['delta']; ?> 名</span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <div style="flex:1; min-width:280px;">
+            <div class="card-title" style="color:var(--danger);">下降最快</div>
+            <?php if (empty($data['top_droppers'])): ?><p class="text-muted">暂无数据</p><?php endif; ?>
+            <?php foreach ($data['top_droppers'] as $m) : ?>
+                <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border);">
+                    <span><?php echo e($m['name']); ?></span>
+                    <span style="color:var(--danger);">▼ <?php echo (int)$m['delta']; ?> 名</span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+<div class="card">
+    <div class="card-title">历史趋势（Top 10 模型按时间桶费用，$）</div>
+    <table class="table">
+        <thead><tr><th>时间</th><?php foreach (array_keys($data['history'][0]['values'] ?? []) as $h) : ?><th><?php echo e($h); ?></th><?php endforeach; ?></tr></thead>
+        <tbody>
+        <?php foreach ($data['history'] as $bucket) : ?>
+            <tr>
+                <td><?php echo e($bucket['label']); ?></td>
+                <?php if (empty($bucket['values'])): ?><td colspan="<?php echo max(1, count($data['history'][0]['values'] ?? [])); ?>" class="text-muted">-</td><?php endif; ?>
+                <?php foreach ($bucket['values'] as $h => $c) : ?>
+                    <td><?php echo e(number_format($c, 4)); ?></td>
+                <?php endforeach; ?>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
 <?php require dirname(__DIR__) . '/templates/footer.php'; ?>

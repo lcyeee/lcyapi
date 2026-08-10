@@ -103,6 +103,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $emailAliasRestriction = empty($_POST['email_alias_restriction']) ? '0' : '1';
     $trustQuota = max(0, (float)($_POST['trust_quota'] ?? 0));
     $checkinBonusMaxDays = max(1, (int)($_POST['checkin_bonus_max_days'] ?? 7));
+    $checkinRandomReward = empty($_POST['checkin_random_reward']) ? '0' : '1';
+    $checkinRewardMin = max(0, (float)($_POST['checkin_reward_min'] ?? 0));
+    $checkinRewardMax = max(0, (float)($_POST['checkin_reward_max'] ?? 0));
+    $smtpAuth = in_array($_POST['smtp_auth'] ?? 'auto', ['auto', 'plain', 'login'], true) ? $_POST['smtp_auth'] : 'auto';
+    $oauthAllowRegister = empty($_POST['oauth_allow_register']) ? '0' : '1';
+    $oauthAllowedDomains = mb_substr(trim($_POST['oauth_allowed_domains'] ?? ''), 0, 500);
+    $ratioSyncUrl = mb_substr(trim($_POST['ratio_sync_url'] ?? ''), 0, 500);
 
     if ($name === '') {
         session_flash('flash_error', '站点名称不能为空');
@@ -204,6 +211,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setting_set('email_alias_restriction', $emailAliasRestriction);
     setting_set('trust_quota', (string)$trustQuota);
     setting_set('checkin_bonus_max_days', (string)$checkinBonusMaxDays);
+    setting_set('checkin_random_reward', $checkinRandomReward);
+    setting_set('checkin_reward_min', (string)$checkinRewardMin);
+    setting_set('checkin_reward_max', (string)$checkinRewardMax);
+    setting_set('smtp_auth', $smtpAuth);
+    setting_set('oauth_allow_register', $oauthAllowRegister);
+    setting_set('oauth_allowed_domains', $oauthAllowedDomains);
+    setting_set('ratio_sync_url', $ratioSyncUrl);
 
     audit_log('settings_save', null, '系统设置已更新');
 
@@ -235,6 +249,13 @@ $smtpHost = isset($s['smtp_host']) ? $s['smtp_host'] : '';
 $smtpPort = isset($s['smtp_port']) ? $s['smtp_port'] : '465';
 $smtpUsername = isset($s['smtp_username']) ? $s['smtp_username'] : '';
 $smtpEncryption = isset($s['smtp_encryption']) ? $s['smtp_encryption'] : 'ssl';
+$smtpAuth = isset($s['smtp_auth']) ? $s['smtp_auth'] : 'auto';
+$checkinRandomReward = isset($s['checkin_random_reward']) ? $s['checkin_random_reward'] : '0';
+$checkinRewardMin = isset($s['checkin_reward_min']) ? $s['checkin_reward_min'] : '0';
+$checkinRewardMax = isset($s['checkin_reward_max']) ? $s['checkin_reward_max'] : '0';
+$oauthAllowRegister = isset($s['oauth_allow_register']) ? $s['oauth_allow_register'] : '1';
+$oauthAllowedDomains = isset($s['oauth_allowed_domains']) ? $s['oauth_allowed_domains'] : '';
+$ratioSyncUrl = isset($s['ratio_sync_url']) ? $s['ratio_sync_url'] : '';
 $smtpFrom = isset($s['smtp_from']) ? $s['smtp_from'] : '';
 $smtpFromName = isset($s['smtp_from_name']) ? $s['smtp_from_name'] : '';
 $smtpConfigured = isset($s['smtp_host']) ? $s['smtp_host'] : '';
@@ -468,6 +489,25 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
             <input type="number" name="checkin_bonus_step" step="0.0001" min="0" class="form-control" value="<?php echo e($checkinBonusStep); ?>" placeholder="如 0.01：第 2 天 +0.01、第 3 天 +0.02……">
             <div class="form-hint">连续签到第 N 天奖励 = 基础奖励 + (N-1)×加成；中断后重新从第 1 天计算。</div>
         </div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">随机签到奖励（每天在下方区间内随机）</label>
+            <label class="ios-switch"><input type="checkbox" name="checkin_random_reward" value="1" <?php echo $checkinRandomReward === '1' ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group" style="display:flex; gap:16px;">
+            <div style="flex:1;">
+                <label>奖励下限（$）</label>
+                <input type="number" name="checkin_reward_min" step="0.0001" min="0" class="form-control" value="<?php echo e($checkinRewardMin); ?>">
+            </div>
+            <div style="flex:1;">
+                <label>奖励上限（$）</label>
+                <input type="number" name="checkin_reward_max" step="0.0001" min="0" class="form-control" value="<?php echo e($checkinRewardMax); ?>">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>连续签到加成封顶天数</label>
+            <input type="number" name="checkin_bonus_max_days" min="1" class="form-control" value="<?php echo e(isset($s['checkin_bonus_max_days']) ? $s['checkin_bonus_max_days'] : '7'); ?>">
+            <div class="form-hint">连续签到第 N 天的递增加成最多计算到该天数，之后不再增长。</div>
+        </div>
     </div>
 
     <div class="card" style="max-width:720px;">
@@ -492,6 +532,14 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
                     <option value="ssl" <?php echo $smtpEncryption === 'ssl' ? 'selected' : ''; ?>>SSL（465）</option>
                     <option value="tls" <?php echo $smtpEncryption === 'tls' ? 'selected' : ''; ?>>TLS（587）</option>
                     <option value="none" <?php echo $smtpEncryption === 'none' ? 'selected' : ''; ?>>无</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label>认证方式</label>
+                <select name="smtp_auth" class="form-control">
+                    <option value="auto" <?php echo $smtpAuth === 'auto' ? 'selected' : ''; ?>>自动（推荐）</option>
+                    <option value="plain" <?php echo $smtpAuth === 'plain' ? 'selected' : ''; ?>>PLAIN（Outlook/Office365）</option>
+                    <option value="login" <?php echo $smtpAuth === 'login' ? 'selected' : ''; ?>>LOGIN</option>
                 </select>
             </div>
         </div>
@@ -544,8 +592,14 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
             <input type="text" name="trusted_redirect_domains" class="form-control" value="<?php echo e(isset($s['trusted_redirect_domains']) ? $s['trusted_redirect_domains'] : ''); ?>" placeholder="example.com,sub.example.com">
         </div>
         <div class="form-group">
-            <label>通知频率限制（次数/小时）</label>
+            <label>通知频率限制（次数/小时/用户/类型）</label>
             <input type="number" name="notify_rate_limit" min="1" class="form-control" value="<?php echo e(isset($s['notify_rate_limit']) ? $s['notify_rate_limit'] : '60'); ?>">
+            <div class="form-hint">按「用户+通知类型」独立统计，超过后该类型通知暂停发送。</div>
+        </div>
+        <div class="form-group">
+            <label>模型倍率同步地址（ratio_sync_url，JSON：{"模型名":{"input":每1M输入价,"output":每1M输出价}}）</label>
+            <input type="text" name="ratio_sync_url" class="form-control" value="<?php echo e($ratioSyncUrl); ?>" placeholder="https://example.com/model-prices.json">
+            <div class="form-hint">由定时任务 sync_ratios 拉取并批量更新 models 表价格，留空则跳过。</div>
         </div>
         <div class="form-group" style="display:flex; gap:16px;">
             <div style="flex:1;">
@@ -577,10 +631,6 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
             <label style="margin:0;">邮箱别名限制（禁止 + 和 . 别名）</label>
             <label class="ios-switch"><input type="checkbox" name="email_alias_restriction" value="1" <?php echo (isset($s['email_alias_restriction']) && $s['email_alias_restriction'] === '1') ? 'checked' : ''; ?>><span></span></label>
         </div>
-        <div class="form-group">
-            <label>连续签到奖励封顶天数</label>
-            <input type="number" name="checkin_bonus_max_days" min="1" class="form-control" value="<?php echo e(isset($s['checkin_bonus_max_days']) ? $s['checkin_bonus_max_days'] : '7'); ?>">
-        </div>
     </div>
 
     <div class="card" style="max-width:720px;">
@@ -600,6 +650,16 @@ $retryStatusCodes = isset($s['retry_status_codes']) ? $s['retry_status_codes'] :
 
     <div class="card" style="max-width:720px;">
         <div class="card-title">第三方登录（OAuth）</div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <label style="margin:0;">允许通过第三方登录自动注册新账号</label>
+            <label class="ios-switch"><input type="checkbox" name="oauth_allow_register" value="1" <?php echo $oauthAllowRegister === '1' ? 'checked' : ''; ?>><span></span></label>
+        </div>
+        <div class="form-group">
+            <label>允许注册的邮箱域名（逗号分隔，仅限有邮箱的提供商，空=不限制）</label>
+            <input type="text" name="oauth_allowed_domains" class="form-control" value="<?php echo e($oauthAllowedDomains); ?>" placeholder="github.com,example.com">
+            <div class="form-hint">Telegram 等无邮箱提供商不受此限制；未绑定过的第三方账号只能登录已有账号。</div>
+        </div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
         <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
             <label style="margin:0;">启用 GitHub 登录</label>
             <label class="ios-switch"><input type="checkbox" name="oauth_github_enabled" value="1" <?php echo $oauthGithubEnabled === '1' ? 'checked' : ''; ?>><span></span></label>

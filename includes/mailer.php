@@ -17,6 +17,7 @@ class Mailer
             'username' => isset($s['smtp_username']) ? $s['smtp_username'] : '',
             'password' => isset($s['smtp_password']) ? $s['smtp_password'] : '',
             'encryption' => isset($s['smtp_encryption']) ? $s['smtp_encryption'] : 'ssl',
+            'auth' => isset($s['smtp_auth']) ? $s['smtp_auth'] : 'auto',
             'from' => isset($s['smtp_from']) ? $s['smtp_from'] : (isset($s['smtp_username']) ? $s['smtp_username'] : 'noreply@localhost'),
             'from_name' => isset($s['smtp_from_name']) ? $s['smtp_from_name'] : setting('site_name', config('site.name')),
         ];
@@ -78,35 +79,61 @@ class Mailer
             fclose($fp);
             return ['ok' => false, 'msg' => 'SMTP 握手失败'];
         }
+        $ehlo = function ($fp) use ($read) {
+            fwrite($fp, 'EHLO ' . 'lcyapi.local' . "\r\n");
+            $resp = '';
+            while (($s = fgets($fp, 515)) !== false) {
+                $resp .= $s;
+                if (isset($s[3]) && $s[3] === ' ') {
+                    break;
+                }
+            }
+            return $resp;
+        };
         if ($cfg['encryption'] === 'tls') {
             $r = $cmd($fp, 'EHLO ' . ($cfg['host'] ?: 'localhost'));
             if (!$r['ok'] || !@stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
                 fclose($fp);
                 return ['ok' => false, 'msg' => 'SMTP 无法启用 TLS'];
             }
-            $cmd($fp, 'EHLO ' . ($cfg['host'] ?: 'localhost'));
+            $ehloResp = $ehlo($fp);
         } else {
-            $r = $cmd($fp, 'EHLO ' . ($cfg['host'] ?: 'localhost'));
-            if (!$r['ok']) {
+            $ehloResp = $ehlo($fp);
+            if (strpos($ehloResp, '250') !== 0) {
                 fclose($fp);
                 return ['ok' => false, 'msg' => 'SMTP EHLO 失败'];
             }
         }
+        $capabilities = strtoupper($ehloResp);
         if ($cfg['username'] !== '') {
-            $r = $cmd($fp, 'AUTH LOGIN', 334);
-            if (!$r['ok']) {
-                fclose($fp);
-                return ['ok' => false, 'msg' => 'SMTP 不支持 AUTH LOGIN'];
+            $auth = !empty($cfg['auth']) ? $cfg['auth'] : 'auto';
+            $authOk = false;
+            $authErr = '';
+            if ($auth === 'plain' || $auth === 'auto' && strpos($capabilities, 'AUTH') !== false) {
+                $r = $cmd($fp, 'AUTH PLAIN ' . base64_encode("\0" . $cfg['username'] . "\0" . $cfg['password']));
+                if ($r['ok']) {
+                    $authOk = true;
+                } elseif ($auth === 'plain') {
+                    $authErr = 'SMTP AUTH PLAIN 失败：' . $r['resp'];
+                }
             }
-            $r = $cmd($fp, base64_encode($cfg['username']), 334);
-            if (!$r['ok']) {
-                fclose($fp);
-                return ['ok' => false, 'msg' => 'SMTP 用户名被拒绝'];
+            if (!$authOk && ($auth === 'login' || $auth === 'auto')) {
+                $r = $cmd($fp, 'AUTH LOGIN', 334);
+                if ($r['ok']) {
+                    $r = $cmd($fp, base64_encode($cfg['username']), 334);
+                    if ($r['ok']) {
+                        $r = $cmd($fp, base64_encode($cfg['password']));
+                        $authOk = $r['ok'];
+                    } else {
+                        $authErr = 'SMTP 用户名被拒绝';
+                    }
+                } else {
+                    $authErr = 'SMTP 不支持 AUTH LOGIN';
+                }
             }
-            $r = $cmd($fp, base64_encode($cfg['password']));
-            if (!$r['ok']) {
+            if (!$authOk) {
                 fclose($fp);
-                return ['ok' => false, 'msg' => 'SMTP 密码错误'];
+                return ['ok' => false, 'msg' => $authErr !== '' ? $authErr : 'SMTP 密码错误'];
             }
         }
         $from = $cfg['from'] !== '' ? $cfg['from'] : $cfg['username'];

@@ -342,7 +342,8 @@ INSERT INTO system_tasks (name, type, status, `interval`) VALUES
 ('上游模型自动同步', 'sync_upstream_models', 1, 86400),
 ('清理过期令牌', 'clean_expired_tokens', 1, 86400),
 ('Midjourney 轮询', 'midjourney_poll', 1, 30),
-('订阅额度重置', 'reset_subscriptions', 1, 3600);
+('订阅额度重置', 'reset_subscriptions', 1, 3600),
+('模型倍率同步', 'sync_ratios', 1, 21600);
 
 CREATE TABLE IF NOT EXISTS system_instances (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

@@ -116,6 +116,60 @@ function task_auto_health(&$result)
     $result .= "渠道健康检查：共 " . count($channels) . " 个启用渠道，失败 {$failed} 个；";
 }
 
+function task_sync_ratios(&$result)
+{
+    /* 模型倍率同步：从配置的 JSON 地址拉取 {模型名: {input: 每1M输入价, output: 每1M输出价}}，更新 models 表 */
+    $url = trim((string)setting('ratio_sync_url', ''));
+    if ($url === '') {
+        $result .= '倍率同步：未配置 ratio_sync_url，跳过；';
+        return;
+    }
+    if (!preg_match('#^https?://#i', $url)) {
+        $result .= '倍率同步：URL 必须以 http/https 开头；';
+        return;
+    }
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+    $body = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code < 200 || $code >= 300) {
+        $result .= "倍率同步：拉取失败（HTTP $code）；";
+        return;
+    }
+    $data = json_decode((string)$body, true);
+    if (!is_array($data)) {
+        $result .= '倍率同步：返回数据不是 JSON；';
+        return;
+    }
+    $updated = 0;
+    foreach ($data as $modelName => $price) {
+        if (!is_string($modelName) || $modelName === '' || !is_array($price)) {
+            continue;
+        }
+        $input = isset($price['input']) ? (float)$price['input'] : null;
+        $output = isset($price['output']) ? (float)$price['output'] : null;
+        if ($input === null && $output === null) {
+            continue;
+        }
+        $set = [];
+        if ($input !== null && $input >= 0) { $set['input_price'] = $input; }
+        if ($output !== null && $output >= 0) { $set['output_price'] = $output; }
+        if ($set === []) {
+            continue;
+        }
+        $affected = DB::update('models', $set, 'name = ?', [$modelName]);
+        if ($affected > 0) {
+            $updated++;
+        }
+    }
+    Cache::deletePrefix('models');
+    $result .= "倍率同步：更新 {$updated} 个模型；";
+}
+
 function task_sync_upstream_models(&$result)
 {
     /* 对比启用渠道上游模型与 models 表，缺失的自动补录（auto_sync_models=1 时写入，否则仅报告） */

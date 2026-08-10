@@ -11,11 +11,12 @@ class Notify
 
     /**
      * 发送通知给用户
+     * $type: 通知类型（quota/order/system 等），限频按「用户+类型」独立统计
      */
-    public static function send($userId, $title, $message, $channel = null)
+    public static function send($userId, $title, $message, $channel = null, $type = 'general')
     {
-        /* 通知频率限制 */
-        if (!self::checkRateLimit()) {
+        /* 通知频率限制：同一用户同一类型每小时最多 N 条 */
+        if (!self::checkRateLimit((int)$userId, $type)) {
             return false;
         }
         $user = User::find($userId);
@@ -46,6 +47,7 @@ class Notify
             'user' => setting('smtp_user', ''),
             'pass' => setting('smtp_pass', ''),
             'encryption' => setting('smtp_encryption', 'ssl'),
+            'auth' => setting('smtp_auth', 'auto'),
             'from' => setting('smtp_from', ''),
         ];
         if ($smtp['host'] === '') {
@@ -136,21 +138,20 @@ class Notify
         }
         $threshold = (float)setting('quota_alert_threshold', '0.5');
         if ((float)$user['quota'] <= $threshold) {
-            self::send($userId, '余额不足提醒', '您的账户余额已低于 $' . number_format($threshold, 2) . '，请及时充值。当前余额：$' . number_format((float)$user['quota'], 4));
+            self::send($userId, '余额不足提醒', '您的账户余额已低于 $' . number_format($threshold, 2) . '，请及时充值。当前余额：$' . number_format((float)$user['quota'], 4), null, 'quota');
         }
     }
 
     /**
-     * 通知频率限制：每小时最多 N 条
+     * 通知频率限制：同一用户同一类型每小时最多 N 条
      */
-    private static function checkRateLimit()
+    private static function checkRateLimit($userId, $type)
     {
         $limit = max(1, (int)setting('notify_rate_limit', '60'));
-        $key = 'notify_rate:' . date('YmdH');
-        $count = (int)DB::value('SELECT COUNT(*) FROM logs WHERE error_msg LIKE ? AND created_at >= ?', ['notify:%', date('Y-m-d H:00:00')]);
+        $key = 'notify:' . (int)$userId . ':' . $type . ':' . date('YmdH');
         if (class_exists('RateLimit') && method_exists('RateLimit', 'check')) {
             return RateLimit::check($key, $limit, 3600);
         }
-        return $count < $limit;
+        return true;
     }
 }

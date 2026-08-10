@@ -22,17 +22,10 @@ if (!$isCallback) {
 }
 
 /* 回调处理 */
-$storedState = isset($_SESSION['oauth_state']) ? $_SESSION['oauth_state'] : '';
-$givenState = isset($_GET['state']) ? (string)$_GET['state'] : '';
-if ($givenState === '' && isset($_GET['return_to']) && strpos((string)$_GET['return_to'], 'lcyapi_oauth_') === 0) {
-    $givenState = substr((string)$_GET['return_to'], strlen('lcyapi_oauth_'));
-}
-if ($storedState === '' || $givenState === '' || !hash_equals($storedState, $givenState)) {
-    unset($_SESSION['oauth_state']);
+if (!OAuth::verifyState()) {
     session_flash('flash_error', '授权状态校验失败，请重试');
     redirect(base_url('user/login.php'));
 }
-unset($_SESSION['oauth_state']);
 
 $info = OAuth::handleCallback($provider);
 if (!$info['ok']) {
