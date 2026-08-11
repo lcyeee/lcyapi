@@ -365,6 +365,11 @@ function svg_icon($name, $class = 'i')
             'image'    => '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 19 5-5 3 3 4-4 4 4"/>',
             'message'  => '<path d="M21 12a9 9 0 0 1-9 9H4l2-3.5A9 9 0 1 1 21 12z"/><circle cx="9" cy="12" r=".6"/><circle cx="12.5" cy="12" r=".6"/><circle cx="16" cy="12" r=".6"/>',
             'panel'    => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+            'code'     => '<path d="m9 18-6-6 6-6"/><path d="m15 6 6 6-6 6"/>',
+            'book'     => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+            'arrow'    => '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+            'sparkle'  => '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/>',
+            'activity' => '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
         ];
     }
     $inner = isset($icons[$name]) ? $icons[$name] : '';

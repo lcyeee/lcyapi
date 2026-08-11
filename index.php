@@ -87,4 +87,5 @@ if ($isApi) {
     exit;
 }
 
-redirect(base_url('user/index.php'));
+/* 根路径始终渲染公开首页（游客与登录用户一致），登录用户经顶栏进入控制台 */
+include __DIR__ . '/includes/landing.php';
