@@ -404,7 +404,7 @@ html[data-mode="dark"] .hero-bg { opacity: .14; }
     border-radius: 6px;
     font-family: ui-monospace, "SF Mono", Consolas, monospace;
     font-size: 10px; font-weight: 700; letter-spacing: .06em;
-    background: var(--term-accent, var(--accent-soft));
+    background: color-mix(in srgb, var(--term-accent, var(--accent)) 15%, transparent);
     color: var(--term-accent, var(--accent));
 }
 .term-url {

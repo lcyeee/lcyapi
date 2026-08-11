@@ -180,45 +180,45 @@ document.addEventListener('DOMContentLoaded', function () {
 <div class="card">
     <div class="card-title">充值记录</div>
     <?php if (!empty($payOrders)) : ?>
-        <table class="table">
+        <table class="table table-collapsible">
             <thead><tr><th>订单号</th><th>方式</th><th>金额</th><th>入账额度</th><th>状态</th><th>时间</th></tr></thead>
             <tbody>
             <?php foreach ($payOrders as $po) : ?>
                 <tr>
-                    <td style="font-family:monospace; font-size:12px;"><?php echo e($po['order_no']); ?></td>
-                    <td><span class="badge badge-blue"><?php echo e($po['provider']); ?></span></td>
-                    <td>$<?php echo e(number_format((float)$po['amount'], 2)); ?></td>
-                    <td>$<?php echo e(number_format((float)$po['quota'], 4)); ?></td>
-                    <td>
+                    <td data-label="订单号" style="font-family:monospace; font-size:12px;"><?php echo e($po['order_no']); ?></td>
+                    <td data-label="方式"><span class="badge badge-blue"><?php echo e($po['provider']); ?></span></td>
+                    <td data-label="金额">$<?php echo e(number_format((float)$po['amount'], 2)); ?></td>
+                    <td data-label="入账额度">$<?php echo e(number_format((float)$po['quota'], 4)); ?></td>
+                    <td data-label="状态">
                         <?php
                         $statusLabel = ['pending' => '待支付', 'paid' => '已到账', 'failed' => '失败', 'closed' => '已关闭'];
                         $statusClass = ['pending' => 'badge-orange', 'paid' => 'badge-green', 'failed' => 'badge-red', 'closed' => ''];
                         ?>
                         <span class="badge <?php echo isset($statusClass[$po['status']]) ? $statusClass[$po['status']] : ''; ?>"><?php echo isset($statusLabel[$po['status']]) ? $statusLabel[$po['status']] : e($po['status']); ?></span>
                     </td>
-                    <td><?php echo e($po['created_at']); ?></td>
+                    <td data-label="时间"><?php echo e($po['created_at']); ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
         </table>
     <?php endif; ?>
-    <table class="table" <?php echo !empty($payOrders) ? 'style="display:none;"' : ''; ?>>
+    <table class="table table-collapsible" <?php echo !empty($payOrders) ? 'style="display:none;"' : ''; ?>>
         <thead>
             <tr><th>ID</th><th>金额</th><th>方式</th><th>备注</th><th>时间</th></tr>
         </thead>
         <tbody>
         <?php if (empty($recharges)) : ?>
-            <tr><td colspan="5" class="text-center text-muted">暂无充值记录，可购买兑换码后 <a href="<?php echo base_url('user/redeem/index.php'); ?>">前往兑换</a></td></tr>
+            <tr class="row-empty"><td colspan="5" class="text-center text-muted">暂无充值记录，可购买兑换码后 <a href="<?php echo base_url('user/redeem/index.php'); ?>">前往兑换</a></td></tr>
         <?php endif; ?>
         <?php foreach ($recharges as $recharge) : ?>
             <tr>
-                <td><?php echo $recharge['id']; ?></td>
-                <td class="<?php echo (float)$recharge['amount'] >= 0 ? 'text-success' : 'text-danger'; ?>">
+                <td data-label="ID"><?php echo $recharge['id']; ?></td>
+                <td data-label="金额" class="<?php echo (float)$recharge['amount'] >= 0 ? 'text-success' : 'text-danger'; ?>">
                     $<?php echo e(number_format((float)$recharge['amount'], 4)); ?>
                 </td>
-                <td><span class="badge badge-blue"><?php echo e($recharge['type']); ?></span></td>
-                <td><?php echo e($recharge['remark'] ?: '-'); ?></td>
-                <td><?php echo e($recharge['created_at']); ?></td>
+                <td data-label="方式"><span class="badge badge-blue"><?php echo e($recharge['type']); ?></span></td>
+                <td data-label="备注"><?php echo e($recharge['remark'] ?: '-'); ?></td>
+                <td data-label="时间"><?php echo e($recharge['created_at']); ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

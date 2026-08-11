@@ -93,6 +93,9 @@ img, svg { vertical-align: middle; }
 
 .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
 
+/* 全局禁止横向溢出（表格横向滚动收敛在 .table-wrap 内部） */
+html, body { overflow-x: hidden; }
+
 /* ---------- 按钮（扁平 · 按压回弹） ---------- */
 .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;

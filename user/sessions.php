@@ -37,16 +37,16 @@ require 'templates/header.php';
         </form>
         <?php endif; ?>
     </div>
-    <table class="table">
+    <table class="table table-collapsible">
         <thead><tr><th>设备</th><th>IP</th><th>最后活动</th><th>创建时间</th><th>操作</th></tr></thead>
         <tbody>
         <?php foreach ($sessions as $s) : ?>
             <tr>
-                <td><?php echo e($s['device'] ?: '-'); ?><?php echo (int)$s['id'] === (int)($_SESSION['session_id'] ?? 0) ? ' <span class="badge badge-green">当前</span>' : ''; ?></td>
-                <td><?php echo e($s['ip'] ?: '-'); ?></td>
-                <td><?php echo e($s['last_active_at']); ?></td>
-                <td><?php echo e($s['created_at']); ?></td>
-                <td>
+                <td data-label="设备"><?php echo e($s['device'] ?: '-'); ?><?php echo (int)$s['id'] === (int)($_SESSION['session_id'] ?? 0) ? ' <span class="badge badge-green">当前</span>' : ''; ?></td>
+                <td data-label="IP"><?php echo e($s['ip'] ?: '-'); ?></td>
+                <td data-label="最后活动"><?php echo e($s['last_active_at']); ?></td>
+                <td data-label="创建时间"><?php echo e($s['created_at']); ?></td>
+                <td class="mc-actions">
                     <?php if ((int)$s['id'] !== (int)($_SESSION['session_id'] ?? 0)) : ?>
                     <form method="post" style="display:inline;" data-confirm-title="撤销会话" data-confirm-msg="确定撤销该会话？" data-confirm-ok="撤销">
                         <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
@@ -59,7 +59,7 @@ require 'templates/header.php';
                     <?php endif; ?>
                 </td>
             </tr>
-        <?php endforeach; if (empty($sessions)): ?><tr><td colspan="5" class="text-center text-muted">暂无会话</td></tr><?php endif; ?>
+        <?php endforeach; if (empty($sessions)): ?><tr class="row-empty"><td colspan="5" class="text-center text-muted">暂无会话</td></tr><?php endif; ?>
         </tbody>
     </table>
 </div>

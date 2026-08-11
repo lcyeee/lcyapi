@@ -76,15 +76,15 @@ $plans = DB::fetchAll('SELECT * FROM subscription_plans WHERE status = 1 ORDER B
     <?php if (empty($history)) : ?>
         <p class="text-muted">暂无开通记录。</p>
     <?php else : ?>
-        <table class="table">
+        <table class="table table-collapsible">
             <thead><tr><th>套餐</th><th>开始</th><th>到期</th><th>状态</th></tr></thead>
             <tbody>
             <?php foreach ($history as $h) : ?>
                 <tr>
-                    <td><?php echo e($h['plan_name'] ?: '#' . $h['plan_id']); ?></td>
-                    <td><?php echo e($h['start_at']); ?></td>
-                    <td><?php echo e($h['end_at']); ?></td>
-                    <td><?php echo $h['status'] ? '<span class="badge badge-green">有效</span>' : '<span class="badge badge-gray">已过期</span>'; ?></td>
+                    <td data-label="套餐"><?php echo e($h['plan_name'] ?: '#' . $h['plan_id']); ?></td>
+                    <td data-label="开始"><?php echo e($h['start_at']); ?></td>
+                    <td data-label="到期"><?php echo e($h['end_at']); ?></td>
+                    <td data-label="状态"><?php echo $h['status'] ? '<span class="badge badge-green">有效</span>' : '<span class="badge badge-gray">已过期</span>'; ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

@@ -35,25 +35,25 @@ $typeLabels = ['chat' => '对话', 'completion' => '补全', 'embedding' => '向
             <button type="submit" class="btn btn-sm"><?php echo svg_icon('search'); ?>筛选</button>
         </form>
     </div>
-    <table class="table">
+    <table class="table table-collapsible">
         <thead>
             <tr><th>模型</th><th>类型</th><th>输入价</th><th>输出价</th><th>上下文</th><th>最大输出</th></tr>
         </thead>
         <tbody>
         <?php if (empty($models)) : ?>
-            <tr><td colspan="6" class="text-center text-muted">暂无可用模型</td></tr>
+            <tr class="row-empty"><td colspan="6" class="text-center text-muted">暂无可用模型</td></tr>
         <?php endif; ?>
         <?php foreach ($models as $m) : ?>
             <tr>
-                <td>
+                <td data-label="模型">
                     <code><?php echo e($m['name']); ?></code>
                     <?php if ($m['display_name']) : ?><div class="form-hint"><?php echo e($m['display_name']); ?></div><?php endif; ?>
                 </td>
-                <td><span class="badge badge-blue"><?php echo isset($typeLabels[$m['type']]) ? $typeLabels[$m['type']] : e($m['type']); ?></span></td>
-                <td>$<?php echo e(number_format((float)$m['input_price'], 6)); ?> / 1K</td>
-                <td>$<?php echo e(number_format((float)$m['output_price'], 6)); ?> / 1K</td>
-                <td><?php echo number_format((int)$m['context_length']); ?></td>
-                <td><?php echo number_format((int)$m['max_output']); ?></td>
+                <td data-label="类型"><span class="badge badge-blue"><?php echo isset($typeLabels[$m['type']]) ? $typeLabels[$m['type']] : e($m['type']); ?></span></td>
+                <td data-label="输入价">$<?php echo e(number_format((float)$m['input_price'], 6)); ?> / 1K</td>
+                <td data-label="输出价">$<?php echo e(number_format((float)$m['output_price'], 6)); ?> / 1K</td>
+                <td data-label="上下文"><?php echo number_format((int)$m['context_length']); ?></td>
+                <td data-label="最大输出"><?php echo number_format((int)$m['max_output']); ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

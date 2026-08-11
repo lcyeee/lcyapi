@@ -68,17 +68,17 @@ $recent = DB::fetchAll('SELECT r.code, r.quota, r.used_at, u.username AS by_name
 
 <div class="card">
     <div class="card-title">最近兑换记录</div>
-    <table class="table">
+    <table class="table table-collapsible">
         <thead><tr><th>兑换码</th><th>金额</th><th>兑换时间</th></tr></thead>
         <tbody>
         <?php if (empty($recent)) : ?>
-            <tr><td colspan="3" class="text-center text-muted">暂无兑换记录</td></tr>
+            <tr class="row-empty"><td colspan="3" class="text-center text-muted">暂无兑换记录</td></tr>
         <?php endif; ?>
         <?php foreach ($recent as $row) : ?>
             <tr>
-                <td><code><?php echo e($row['code']); ?></code></td>
-                <td>$<?php echo e(number_format((float)$row['quota'], 4)); ?></td>
-                <td><?php echo e($row['used_at']); ?></td>
+                <td data-label="兑换码"><code><?php echo e($row['code']); ?></code></td>
+                <td data-label="金额">$<?php echo e(number_format((float)$row['quota'], 4)); ?></td>
+                <td data-label="兑换时间"><?php echo e($row['used_at']); ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

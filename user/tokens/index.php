@@ -167,28 +167,28 @@ $tokens = Token::getByUser(Auth::id());
 
 <div class="card">
     <div class="card-title">我的令牌（<?php echo count($tokens); ?>）</div>
-    <table class="table">
+    <table class="table table-collapsible">
         <thead>
             <tr><th>ID</th><th>名称</th><th>分组</th><th>密钥</th><th>剩余额度</th><th>已用</th>
                 <th>次数</th><th>过期时间</th><th>状态</th><th>最后使用</th><th>操作</th></tr>
         </thead>
         <tbody>
         <?php if (empty($tokens)) : ?>
-            <tr><td colspan="11" class="text-center text-muted">暂无令牌，创建第一个吧</td></tr>
+            <tr class="row-empty"><td colspan="11" class="text-center text-muted">暂无令牌，创建第一个吧</td></tr>
         <?php endif; ?>
         <?php foreach ($tokens as $token) : ?>
             <tr>
-                <td><?php echo $token['id']; ?></td>
-                <td><?php echo e($token['name']); ?></td>
-                <td><span class="badge badge-blue"><?php echo e($token['group'] ?? 'default'); ?></span></td>
-                <td><code><?php echo e(Token::maskKey($token['key'])); ?></code></td>
-                <td><?php echo (float)$token['remain_quota'] < 0 ? '不限' : '$' . e(number_format((float)$token['remain_quota'], 4)); ?></td>
-                <td>$<?php echo e(number_format((float)$token['used_quota'], 4)); ?></td>
-                <td><?php echo number_format((int)$token['used_count']); ?></td>
-                <td><?php echo $token['expired_at'] ? e($token['expired_at']) : '-'; ?></td>
-                <td><?php echo $token['status'] ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-gray">已停用</span>'; ?></td>
-                <td><?php echo $token['last_used_at'] ? e($token['last_used_at']) : '-'; ?></td>
-                <td style="white-space:nowrap;">
+                <td data-label="ID"><?php echo $token['id']; ?></td>
+                <td data-label="名称"><?php echo e($token['name']); ?></td>
+                <td data-label="分组"><span class="badge badge-blue"><?php echo e($token['group'] ?? 'default'); ?></span></td>
+                <td data-label="密钥"><code><?php echo e(Token::maskKey($token['key'])); ?></code></td>
+                <td data-label="剩余额度"><?php echo (float)$token['remain_quota'] < 0 ? '不限' : '$' . e(number_format((float)$token['remain_quota'], 4)); ?></td>
+                <td data-label="已用">$<?php echo e(number_format((float)$token['used_quota'], 4)); ?></td>
+                <td data-label="次数"><?php echo number_format((int)$token['used_count']); ?></td>
+                <td data-label="过期时间"><?php echo $token['expired_at'] ? e($token['expired_at']) : '-'; ?></td>
+                <td data-label="状态"><?php echo $token['status'] ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-gray">已停用</span>'; ?></td>
+                <td data-label="最后使用"><?php echo $token['last_used_at'] ? e($token['last_used_at']) : '-'; ?></td>
+                <td class="mc-actions">
                     <a class="btn btn-sm btn-outline" href="javascript:void(0)" onclick="toggleEdit(<?php echo $token['id']; ?>)">编辑</a>
                     <?php if ($token['status']) : ?>
                         <form method="post" style="display:inline-block; margin-right:4px;">
@@ -207,7 +207,7 @@ $tokens = Token::getByUser(Auth::id());
                 </td>
             </tr>
             <tr id="token-edit-<?php echo $token['id']; ?>" style="display:none;">
-                <td colspan="11">
+                <td class="mc-card" colspan="11">
                     <form method="post" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
                         <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
                         <input type="hidden" name="action" value="edit">
