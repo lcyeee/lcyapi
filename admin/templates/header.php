@@ -80,9 +80,8 @@ function admin_nav($needle, $requestPath)
                 </div>
             </div>
             <div class="menu-group" data-group="supplier">
-                <button type="button" class="group-title" aria-expanded="true"><span class="gt">供应商</span><?php echo svg_icon('chevron', 'i group-arrow'); ?></button>
+                <button type="button" class="group-title" aria-expanded="true"><span class="gt">扩展</span><?php echo svg_icon('chevron', 'i group-arrow'); ?></button>
                 <div class="group-body">
-                    <a class="<?php echo admin_nav('/admin/suppliers.php', $requestPath); ?>" href="<?php echo base_url('admin/suppliers.php'); ?>" title="供应商/部署"><?php echo svg_icon('server'); ?><span class="lbl">供应商/部署</span></a>
                     <a class="<?php echo admin_nav('/admin/oauth_bindings.php', $requestPath); ?>" href="<?php echo base_url('admin/oauth_bindings.php'); ?>" title="OAuth 绑定"><?php echo svg_icon('globe'); ?><span class="lbl">OAuth 绑定</span></a>
                     <a class="<?php echo admin_nav('/admin/chat_presets.php', $requestPath); ?>" href="<?php echo base_url('admin/chat_presets.php'); ?>" title="聊天预设"><?php echo svg_icon('send'); ?><span class="lbl">聊天预设</span></a>
                     <a class="<?php echo admin_nav('/admin/prefill_groups.php', $requestPath); ?>" href="<?php echo base_url('admin/prefill_groups.php'); ?>" title="预填充分组"><?php echo svg_icon('ratio'); ?><span class="lbl">预填充分组</span></a>

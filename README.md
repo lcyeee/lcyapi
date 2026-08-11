@@ -20,7 +20,7 @@
 - **用户体系**：注册/登录、邮箱验证+域名白名单、找回密码（SMTP）、TOTP 2FA+恢复码+失败锁定、登录会话管理、OAuth（GitHub/Telegram/Discord/LinuxDO/OIDC/微信）、每日签到（随机奖励+连续奖励）、邀请返利+被邀请人列表、余额告警、自用模式
 - **令牌管理**：sk- 前缀、哈希存储、独立额度、IP 白名单、auto 分组
 - **在线支付**：易支付 / Stripe / Creem / Waffo，`pay_orders` 订单表 + 回调验签 + 充值倍率入账
-- **运营管理后台**：仪表盘图表、渠道/用户/模型/令牌/日志/错误/兑换码/审计/登录日志/分组/订阅/任务管理、排行榜/性能指标/用量统计、Uptime Kuma、供应商/部署、OAuth 绑定、2FA 统计、公开页编辑、系统占用、会话管理
+- **运营管理后台**：仪表盘图表、渠道/用户/模型/令牌/日志/错误/兑换码/审计/登录日志/分组/订阅/任务管理、排行榜/性能指标/用量统计、Uptime Kuma、OAuth 绑定、2FA 统计、公开页编辑、系统占用、会话管理
 - **系统能力**：定时任务（cron.php：日志清理/兑换码清理/订阅重置/任务轮询/渠道测试等）、通知系统（Email/Webhook/Bark/Gotify + 频控）、系统实例心跳、渠道费用排行
 
 ### 界面与体验
@@ -59,7 +59,7 @@ curl -X POST http://your-host/v1/chat/completions \
 ├── admin/                 # 管理员后台
 ├── user/                  # 用户前台
 ├── assets/                # 样式/脚本（本地 Chart.js、主题引擎、弹窗组件）
-├── sql/install.sql        # 建表脚本（28 张表）
+├── sql/install.sql        # 建表脚本（26 张表）
 ├── tools/                 # 开发工具（mock 上游、故障模拟、dev-server、cron 定时任务）
 ├── data/                  # 运行时数据（日志/缓存，git 已忽略）
 ├── nginx.conf / .htaccess # Web 服务器伪静态示例
