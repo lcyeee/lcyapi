@@ -420,7 +420,6 @@ $sunoCharge = isset($s['suno_charge']) ? $s['suno_charge'] : '0';
             <div class="form-hint">用户个人中心创建令牌时的数量上限，防止滥用。</div>
         </div>
     </div>
-    </div>
 
     <div class="card" style="max-width:720px;">
         <div class="card-title">安全设置</div>

@@ -161,7 +161,15 @@ img, svg { vertical-align: middle; }
 .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .form-control::placeholder { color: var(--text-3); }
 textarea.form-control { min-height: 96px; resize: vertical; line-height: 1.6; }
-select.form-control { height: 40px; }
+select.form-control {
+    height: 40px;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238990a5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px 12px;
+    padding-right: 30px;
+    cursor: pointer;
+}
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-color: var(--accent); vertical-align: -3px; }
 .form-hint { font-size: 12px; color: var(--text-3); margin-top: 4px; }
 .form-error { color: var(--red-text); font-size: 13px; margin-top: 4px; }

@@ -8,6 +8,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         session_flash('flash_error', '页面已过期，请重试');
         redirect(base_url('admin/groups/index.php'));
     }
+    if (($_POST['action'] ?? '') === 'create_group') {
+        $name = trim($_POST['new_group_name'] ?? '');
+        $desc = trim($_POST['new_group_desc'] ?? '');
+        $rate = trim($_POST['new_group_rate'] ?? '');
+        if ($name === '') {
+            session_flash('flash_error', '请填写分组名称');
+            redirect(base_url('admin/groups/index.php'));
+        }
+        if (!preg_match('/^[\p{L}\p{N}_-]{1,32}$/u', $name)) {
+            session_flash('flash_error', '分组名称仅支持中文、字母、数字、下划线、短横线（最长 32 字符）');
+            redirect(base_url('admin/groups/index.php'));
+        }
+        $ratioMap = Group::ratioMap();
+        if (isset($ratioMap[$name])) {
+            session_flash('flash_error', '分组「' . $name . '」已存在');
+            redirect(base_url('admin/groups/index.php'));
+        }
+        if (!is_numeric($rate) || (float)$rate < 0) {
+            session_flash('flash_error', '计费倍率必须是大于等于 0 的数字');
+            redirect(base_url('admin/groups/index.php'));
+        }
+        $ratioMap[$name] = (float)$rate;
+        setting_set('group_ratio', json_encode($ratioMap, JSON_UNESCAPED_UNICODE));
+        $usable = Group::usableGroups();
+        if (!isset($usable[$name])) {
+            $usable[$name] = $desc !== '' ? $desc : $name;
+            setting_set('user_usable_groups', json_encode($usable, JSON_UNESCAPED_UNICODE));
+        }
+        session_flash('flash_success', '分组「' . $name . '」已创建（倍率 ' . (float)$rate . '）');
+        audit_log('group_create', null, $name);
+        redirect(base_url('admin/groups/index.php'));
+    }
+
     if (($_POST['action'] ?? '') === 'delete_group') {
         $name = trim($_POST['group_name'] ?? '');
         $ratio = json_decode((string)setting('group_ratio', ''), true);
@@ -71,6 +104,14 @@ $groups = Group::allGroups();
 <div class="card" style="max-width:760px;">
     <div class="card-title">已定义分组</div>
     <p class="form-hint" style="margin:0 0 10px;">分组由「分组倍率」配置定义，未列出的分组视为不存在。渠道按逗号分隔的多组标签匹配，用户/令牌归属于单组。倍率作用于计费：用户实际扣费 = 模型价格 × 组倍率（组间倍率优先）。</p>
+    <form method="post" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+        <input type="hidden" name="_csrf" value="<?php echo csrf_token(); ?>">
+        <input type="hidden" name="action" value="create_group">
+        <input type="text" name="new_group_name" class="form-control" style="width:130px;" placeholder="分组名称" required>
+        <input type="text" name="new_group_desc" class="form-control" style="width:170px;" placeholder="中文描述（可选）">
+        <input type="number" name="new_group_rate" step="0.01" min="0" class="form-control" style="width:90px;" placeholder="倍率" value="1">
+        <button type="submit" class="btn">新建分组</button>
+    </form>
     <table class="table">
         <thead><tr><th>分组</th><th>可用描述</th><th>计费倍率</th><th>令牌数</th><th>操作</th></tr></thead>
         <tbody>

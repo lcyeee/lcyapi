@@ -142,18 +142,18 @@ $groupOptions = Group::allGroups();
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap;">
     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <form method="get" id="filterForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <select name="type" class="form-control" style="width:120px; height:32px;" onchange="this.form.submit()">
+            <select name="type" class="form-control" style="width:120px;" onchange="this.form.submit()">
                 <option value="">全部类型</option>
                 <option value="openai" <?php echo $filterType === 'openai' ? 'selected' : ''; ?>>OpenAI</option>
                 <option value="azure" <?php echo $filterType === 'azure' ? 'selected' : ''; ?>>Azure</option>
                 <option value="custom" <?php echo $filterType === 'custom' ? 'selected' : ''; ?>>自定义</option>
             </select>
-            <select name="status" class="form-control" style="width:120px; height:32px;" onchange="this.form.submit()">
+            <select name="status" class="form-control" style="width:120px;" onchange="this.form.submit()">
                 <option value="">全部状态</option>
                 <option value="1" <?php echo $filterStatus === 1 ? 'selected' : ''; ?>>启用</option>
                 <option value="0" <?php echo $filterStatus === 0 ? 'selected' : ''; ?>>停用</option>
             </select>
-            <select name="group" class="form-control" style="width:130px; height:32px;" onchange="this.form.submit()">
+            <select name="group" class="form-control" style="width:130px;" onchange="this.form.submit()">
                 <option value="">全部分组</option>
                 <?php foreach ($groupOptions as $gname) : ?>
                     <option value="<?php echo e($gname); ?>" <?php echo $filterGroup === $gname ? 'selected' : ''; ?>><?php echo e($gname); ?></option>
